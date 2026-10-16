@@ -1,0 +1,33 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Styles de base mobile-first (NFR-9).
+   L'application est conçue d'abord pour les petits écrans (>=320px) ; les
+   points de rupture md:/lg: enrichissent la mise en page au-delà. */
+@layer base {
+  html,
+  body,
+  #root {
+    @apply h-full;
+  }
+
+  body {
+    @apply bg-slate-50 text-slate-900 antialiased;
+    /* Zone sûre pour la navigation inférieure sur les appareils à encoche. */
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
+
+@layer components {
+  /* Élément de navigation inférieure : cible tactile >=44px, atteignable au
+     pouce (NFR-9). */
+  .nav-item {
+    @apply flex min-h-touch min-w-touch flex-1 flex-col items-center
+      justify-center gap-0.5 px-2 py-1 text-xs font-medium text-slate-500;
+  }
+
+  .nav-item-active {
+    @apply text-sky-600;
+  }
+}

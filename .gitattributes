@@ -1,0 +1,6 @@
+# Normalisation des fins de ligne pour les scripts de cycle de vie.
+# Les scripts shell DOIVENT rester en LF (sinon le shebang casse sous Linux).
+*.sh text eol=lf
+# Les scripts batch Windows restent en CRLF.
+*.bat text eol=crlf
+*.cmd text eol=crlf

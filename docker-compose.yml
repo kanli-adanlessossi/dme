@@ -1,0 +1,64 @@
+# Pile locale complète — NFR-12 : démarrable en une commande `docker compose up`.
+# Services : db (PostgreSQL + PostGIS), api (FastAPI), web (Vite).
+
+services:
+  db:
+    image: postgis/postgis:16-3.4
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-dme}
+      POSTGRES_USER: ${POSTGRES_USER:-dme}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-dme}
+    ports:
+      - "5432:5432"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-dme} -d ${POSTGRES_DB:-dme}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  api:
+    build:
+      context: ./backend
+    environment:
+      APP_NAME: ${APP_NAME:-DME - Centres médicaux Togo}
+      ENVIRONMENT: ${ENVIRONMENT:-development}
+      DEBUG: ${DEBUG:-true}
+      POSTGRES_HOST: db
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: ${POSTGRES_DB:-dme}
+      POSTGRES_USER: ${POSTGRES_USER:-dme}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-dme}
+      # Source d'amorçage des régions (tâche 6.2). Le dossier `data/` du dépôt est
+      # monté en lecture seule (voir `volumes` ci-dessous) ; l'amorçage joué par
+      # l'entrypoint lit ce chemin. Jamais codé en dur dans l'image.
+      REGIONS_GEOJSON_PATH: /app/data/togo-regions.geojson
+    ports:
+      - "8000:8000"
+    volumes:
+      # GeoJSON ouvert des 5 régions (geoBoundaries / OSM, ODbL) en lecture seule.
+      - ./data:/app/data:ro
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/health').status==200 else 1)\""]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  web:
+    build:
+      context: ./frontend
+    environment:
+      VITE_API_URL: ${VITE_API_URL:-http://localhost:8000}
+    ports:
+      - "5173:5173"
+    depends_on:
+      - api
+
+volumes:
+  db_data:
