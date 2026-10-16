@@ -1,0 +1,690 @@
+{
+  "pbtResults": {},
+  "executionHistory": {
+    "1. Mettre en place le dépôt et la pile locale": [
+      {
+        "executionId": "54b550c3-777e-407b-bafc-d8b60fa165ee",
+        "chatSessionId": "sess_31de69f8-f657-41c5-861b-8a716bef5ed3",
+        "timestamp": 1791876981706
+      },
+      {
+        "executionId": "54b550c3-777e-407b-bafc-d8b60fa165ee",
+        "chatSessionId": "sess_31de69f8-f657-41c5-861b-8a716bef5ed3",
+        "timestamp": 1791877333540
+      }
+    ],
+    "2. Fondation backend (FastAPI + SQLAlchemy + Alembic)": [
+      {
+        "executionId": "e793aca5-3d6d-4e57-bb1f-eff6aa5c2251",
+        "chatSessionId": "sess_27acd6d8-5b9f-4c82-8ed8-0806f448338b",
+        "timestamp": 1791877409635
+      },
+      {
+        "executionId": "e793aca5-3d6d-4e57-bb1f-eff6aa5c2251",
+        "chatSessionId": "sess_27acd6d8-5b9f-4c82-8ed8-0806f448338b",
+        "timestamp": 1791878467283
+      }
+    ],
+    "2.1 Initialiser l'app FastAPI, `pyproject.toml`, moteur/session SQLAlchemy async, `/health`, `/docs`, `/openapi.json`.": [
+      {
+        "executionId": "0026f943-dec3-4c6c-8dff-1300fc49265e",
+        "chatSessionId": "sess_e2d27b84-6e37-4d42-a1a6-16e6dcf7cfa9",
+        "timestamp": 1791878530614
+      },
+      {
+        "executionId": "0026f943-dec3-4c6c-8dff-1300fc49265e",
+        "chatSessionId": "sess_e2d27b84-6e37-4d42-a1a6-16e6dcf7cfa9",
+        "timestamp": 1791878620845
+      }
+    ],
+    "2.2 Configurer Alembic pour les migrations versionnées ; activer l'extension PostGIS dans la migration initiale.": [
+      {
+        "executionId": "27675197-9928-4830-8656-10f00275796d",
+        "chatSessionId": "sess_00b8a05e-7017-4f4b-91d0-307dc6a480e3",
+        "timestamp": 1791878642060
+      },
+      {
+        "executionId": "27675197-9928-4830-8656-10f00275796d",
+        "chatSessionId": "sess_00b8a05e-7017-4f4b-91d0-307dc6a480e3",
+        "timestamp": 1791878944999
+      }
+    ],
+    "3. Figer le contrat d'API et le protocole de synchronisation (contract-first)": [
+      {
+        "executionId": "a878b7b8-a1fa-4ff3-8c2e-3368ea80d59d",
+        "chatSessionId": "sess_a20605f7-9800-42b1-b87d-6a2184c48a39",
+        "timestamp": 1791878968588
+      },
+      {
+        "executionId": "a878b7b8-a1fa-4ff3-8c2e-3368ea80d59d",
+        "chatSessionId": "sess_a20605f7-9800-42b1-b87d-6a2184c48a39",
+        "timestamp": 1791879699999
+      }
+    ],
+    "4.1 Créer les tables `tenant`, `app_user`, `medical_center` avec colonnes `tenant_id` ; ajouter un rôle de base applicatif non-superuser.": [
+      {
+        "executionId": "ca56f4ad-fe16-43bf-8c84-25d59ed1a8a1",
+        "chatSessionId": "sess_40e3a892-fde1-4002-bd00-895e99a80b37",
+        "timestamp": 1791879738327
+      },
+      {
+        "executionId": "ca56f4ad-fe16-43bf-8c84-25d59ed1a8a1",
+        "chatSessionId": "sess_40e3a892-fde1-4002-bd00-895e99a80b37",
+        "timestamp": 1791880251191
+      }
+    ],
+    "4.2 Ajouter une migration activant et FORÇANT la RLS avec les politiques `tenant_isolation` (USING + WITH CHECK sur `app.tenant_id`).": [
+      {
+        "executionId": "ca56f4ad-fe16-43bf-8c84-25d59ed1a8a1",
+        "chatSessionId": "sess_40e3a892-fde1-4002-bd00-895e99a80b37",
+        "timestamp": 1791880255097
+      },
+      {
+        "executionId": "ca56f4ad-fe16-43bf-8c84-25d59ed1a8a1",
+        "chatSessionId": "sess_40e3a892-fde1-4002-bd00-895e99a80b37",
+        "timestamp": 1791885812505
+      }
+    ],
+    "4.3 Implémenter la dépendance de contexte de tenant par requête qui exécute `SET LOCAL app.tenant_id` dans une transaction.": [
+      {
+        "executionId": "ca56f4ad-fe16-43bf-8c84-25d59ed1a8a1",
+        "chatSessionId": "sess_40e3a892-fde1-4002-bd00-895e99a80b37",
+        "timestamp": 1791885815940
+      },
+      {
+        "executionId": "ca56f4ad-fe16-43bf-8c84-25d59ed1a8a1",
+        "chatSessionId": "sess_40e3a892-fde1-4002-bd00-895e99a80b37",
+        "timestamp": 1791886050433
+      }
+    ],
+    "4.4 Écrire les tests d'isolation : le tenant A ne peut lire/écrire les lignes du tenant B ; une requête brute sans contexte ne renvoie aucune ligne (vérifie P1, P2).": [
+      {
+        "executionId": "ca56f4ad-fe16-43bf-8c84-25d59ed1a8a1",
+        "chatSessionId": "sess_40e3a892-fde1-4002-bd00-895e99a80b37",
+        "timestamp": 1791886054503
+      },
+      {
+        "executionId": "ca56f4ad-fe16-43bf-8c84-25d59ed1a8a1",
+        "chatSessionId": "sess_40e3a892-fde1-4002-bd00-895e99a80b37",
+        "timestamp": 1791888391532
+      }
+    ],
+    "4. Cœur multi-tenant + Row-Level Security (critique pour la sécurité)": [
+      {
+        "executionId": "ca56f4ad-fe16-43bf-8c84-25d59ed1a8a1",
+        "chatSessionId": "sess_40e3a892-fde1-4002-bd00-895e99a80b37",
+        "timestamp": 1791888391625
+      }
+    ],
+    "5. Capacité d'audit distribuée (transversale, avant les PHI)": [
+      {
+        "executionId": "53e8c638-4646-4429-b143-eb4cd89bab0f",
+        "chatSessionId": "sess_5ef1ee8f-0be5-4609-9420-b624c5cd5ace",
+        "timestamp": 1791888423304
+      },
+      {
+        "executionId": "53e8c638-4646-4429-b143-eb4cd89bab0f",
+        "chatSessionId": "sess_5ef1ee8f-0be5-4609-9420-b624c5cd5ace",
+        "timestamp": 1791888869247
+      }
+    ],
+    "5.1 Créer `audit_log` en append-only (droits insertion seule ; SELECT pour platform_admin ; aucun UPDATE/DELETE) avec un écrivain non contraint par le contexte de tenant ; colonnes `event_at` (client) et `received_at` (serveur).": [
+      {
+        "executionId": "aafbf67e-262d-4eec-8a04-0b53d0e9faa1",
+        "chatSessionId": "sess_f94e7821-cb44-4af4-aa8e-3736cf4d0fd6",
+        "timestamp": 1791888897427
+      },
+      {
+        "executionId": "aafbf67e-262d-4eec-8a04-0b53d0e9faa1",
+        "chatSessionId": "sess_f94e7821-cb44-4af4-aa8e-3736cf4d0fd6",
+        "timestamp": 1791889313484
+      }
+    ],
+    "5.2 Ajouter un helper/middleware d'audit et le câbler afin que le code PHI, auth et sync ultérieur journalise de manière cohérente ; accepter les événements hors ligne téléversés.": [
+      {
+        "executionId": "e7fe980c-6872-4448-b0c3-25a5cfd265e2",
+        "chatSessionId": "sess_5e852775-5400-449b-b58d-04295671a8b2",
+        "timestamp": 1791889350992
+      },
+      {
+        "executionId": "e7fe980c-6872-4448-b0c3-25a5cfd265e2",
+        "chatSessionId": "sess_5e852775-5400-449b-b58d-04295671a8b2",
+        "timestamp": 1791889563180
+      }
+    ],
+    "5.3 Tests : les événements plateforme à tenant NULL persistent ; lignes immuables ; un événement PHI hors ligne téléversé est conservé sans perte (vérifie P5).": [
+      {
+        "executionId": "b83273a9-c351-4dde-b583-6c71776b163f",
+        "chatSessionId": "sess_bc0965b4-855e-4e9f-849a-f9b211f0e353",
+        "timestamp": 1791889598463
+      },
+      {
+        "executionId": "b83273a9-c351-4dde-b583-6c71776b163f",
+        "chatSessionId": "sess_bc0965b4-855e-4e9f-849a-f9b211f0e353",
+        "timestamp": 1791889750033
+      }
+    ],
+    "6.1 Créer les tables `region` et `service_type` (migration + modèles SQLAlchemy).": [
+      {
+        "executionId": "4d4444eb-7f44-4844-9137-0050929dcab7",
+        "chatSessionId": "sess_dbc0c225-cd8b-42bc-9fea-cd2e9a6db3be",
+        "timestamp": 1791889808723
+      },
+      {
+        "executionId": "4d4444eb-7f44-4844-9137-0050929dcab7",
+        "chatSessionId": "sess_dbc0c225-cd8b-42bc-9fea-cd2e9a6db3be",
+        "timestamp": 1791894156205
+      }
+    ],
+    "6.2 Charger le GeoJSON des régions du Togo (jeu de données ouvert et attribué) dans `data/togo-regions.geojson` et amorcer les 5 régions (Savanes, Kara, Centrale, Plateaux, Maritime) avec leur géométrie.": [
+      {
+        "executionId": "4d4444eb-7f44-4844-9137-0050929dcab7",
+        "chatSessionId": "sess_dbc0c225-cd8b-42bc-9fea-cd2e9a6db3be",
+        "timestamp": 1791894160221
+      },
+      {
+        "executionId": "4d4444eb-7f44-4844-9137-0050929dcab7",
+        "chatSessionId": "sess_dbc0c225-cd8b-42bc-9fea-cd2e9a6db3be",
+        "timestamp": 1791895109566
+      }
+    ],
+    "6. Modèle de données de référence + régions": [
+      {
+        "executionId": "4d4444eb-7f44-4844-9137-0050929dcab7",
+        "chatSessionId": "sess_dbc0c225-cd8b-42bc-9fea-cd2e9a6db3be",
+        "timestamp": 1791895109629
+      }
+    ],
+    "7.1 Implémenter le hachage de mot de passe Argon2id et l'auth `app_user`.": [
+      {
+        "executionId": "0eb92510-dd90-4c74-86d5-09a3f736b43f",
+        "chatSessionId": "sess_88677813-da3d-4172-8ce2-e3748f380295",
+        "timestamp": 1791895163557
+      },
+      {
+        "executionId": "0eb92510-dd90-4c74-86d5-09a3f736b43f",
+        "chatSessionId": "sess_88677813-da3d-4172-8ce2-e3748f380295",
+        "timestamp": 1791895369371
+      }
+    ],
+    "7.2 Implémenter `POST /api/auth/login` + `refresh`, émettant des JWT portant `tenant_id` et `role`, avec une durée de vie dimensionnée pour une journée de travail hors ligne ; journaliser les événements d'auth.": [
+      {
+        "executionId": "0eb92510-dd90-4c74-86d5-09a3f736b43f",
+        "chatSessionId": "sess_88677813-da3d-4172-8ce2-e3748f380295",
+        "timestamp": 1791895373305
+      },
+      {
+        "executionId": "0eb92510-dd90-4c74-86d5-09a3f736b43f",
+        "chatSessionId": "sess_88677813-da3d-4172-8ce2-e3748f380295",
+        "timestamp": 1791895721651
+      }
+    ],
+    "7.3 Implémenter la limitation de débit / le verrouillage de connexion après échecs répétés.": [
+      {
+        "executionId": "0eb92510-dd90-4c74-86d5-09a3f736b43f",
+        "chatSessionId": "sess_88677813-da3d-4172-8ce2-e3748f380295",
+        "timestamp": 1791895725068
+      },
+      {
+        "executionId": "0eb92510-dd90-4c74-86d5-09a3f736b43f",
+        "chatSessionId": "sess_88677813-da3d-4172-8ce2-e3748f380295",
+        "timestamp": 1791896041519
+      }
+    ],
+    "7.4 Implémenter le flux de jeton de configuration d'identifiants à usage unique et expirant (`POST /api/auth/set-credentials`).": [
+      {
+        "executionId": "0eb92510-dd90-4c74-86d5-09a3f736b43f",
+        "chatSessionId": "sess_88677813-da3d-4172-8ce2-e3748f380295",
+        "timestamp": 1791896045267
+      },
+      {
+        "executionId": "0eb92510-dd90-4c74-86d5-09a3f736b43f",
+        "chatSessionId": "sess_88677813-da3d-4172-8ce2-e3748f380295",
+        "timestamp": 1791896367837
+      }
+    ],
+    "7.5 Implémenter les dépendances de cadrage par rôle ; 403 si rôle manquant, 404 en inter-tenant (vérifie P3) ; exposer l'état de révocation via `sync/pull`.": [
+      {
+        "executionId": "0eb92510-dd90-4c74-86d5-09a3f736b43f",
+        "chatSessionId": "sess_88677813-da3d-4172-8ce2-e3748f380295",
+        "timestamp": 1791896371700
+      },
+      {
+        "executionId": "0eb92510-dd90-4c74-86d5-09a3f736b43f",
+        "chatSessionId": "sess_88677813-da3d-4172-8ce2-e3748f380295",
+        "timestamp": 1791910912833
+      }
+    ],
+    "7.6 Tests : cadrage par rôle, non-fuite d'existence, verrouillage, expiration du jeton, et révocation propagée à la sync (NFR-7).": [
+      {
+        "executionId": "0eb92510-dd90-4c74-86d5-09a3f736b43f",
+        "chatSessionId": "sess_88677813-da3d-4172-8ce2-e3748f380295",
+        "timestamp": 1791910919926
+      },
+      {
+        "executionId": "0eb92510-dd90-4c74-86d5-09a3f736b43f",
+        "chatSessionId": "sess_88677813-da3d-4172-8ce2-e3748f380295",
+        "timestamp": 1791911263435
+      }
+    ],
+    "7. Authentification tolérante à l'hors-ligne, configuration des identifiants et RBAC": [
+      {
+        "executionId": "0eb92510-dd90-4c74-86d5-09a3f736b43f",
+        "chatSessionId": "sess_88677813-da3d-4172-8ce2-e3748f380295",
+        "timestamp": 1791911263487
+      }
+    ],
+    "8. Intégration et cycle de vie des tenants (administrateur de plateforme)": [
+      {
+        "executionId": "c7f05e1e-3451-49b5-8d93-8c1dd61ec93f",
+        "chatSessionId": "sess_79207f72-4a8b-4578-a3ad-41885d17cdea",
+        "timestamp": 1791913173311
+      },
+      {
+        "executionId": "c7f05e1e-3451-49b5-8d93-8c1dd61ec93f",
+        "chatSessionId": "sess_79207f72-4a8b-4578-a3ad-41885d17cdea",
+        "timestamp": 1791915418133
+      }
+    ],
+    "8.1 `POST /api/admin/tenants` crée tenant + medical_center + tenant_admin initial + jeton de configuration (audité).": [
+      {
+        "executionId": "c23816a7-d6cf-46ff-9640-e2440213a08b",
+        "chatSessionId": "sess_7b4723fb-fe6c-4ebf-b92f-96f30a4144b7",
+        "timestamp": 1791915518533
+      },
+      {
+        "executionId": "c23816a7-d6cf-46ff-9640-e2440213a08b",
+        "chatSessionId": "sess_7b4723fb-fe6c-4ebf-b92f-96f30a4144b7",
+        "timestamp": 1791916439806
+      }
+    ],
+    "8.2 `GET/PATCH /api/admin/tenants/{id}` liste et active/désactive ; la désactivation conserve les données, masque du public, bloque la connexion.": [
+      {
+        "executionId": "7f4c1a5e-80e1-40cb-a3ff-a50d938d585a",
+        "chatSessionId": "sess_852000c2-9e9f-4627-be9d-9b5824f60549",
+        "timestamp": 1791916475015
+      },
+      {
+        "executionId": "7f4c1a5e-80e1-40cb-a3ff-a50d938d585a",
+        "chatSessionId": "sess_852000c2-9e9f-4627-be9d-9b5824f60549",
+        "timestamp": 1791916805939
+      }
+    ],
+    "8.3 Tests : un non-admin ne peut créer/lister des tenants ; un tenant désactivé est masqué + connexion refusée ; actions auditées (vérifie P8).": [
+      {
+        "executionId": "00155e92-ea3e-4b08-bc68-406d06633720",
+        "chatSessionId": "sess_2a40af13-ad78-47fb-afab-2384d6ac9361",
+        "timestamp": 1791916962503
+      },
+      {
+        "executionId": "00155e92-ea3e-4b08-bc68-406d06633720",
+        "chatSessionId": "sess_2a40af13-ad78-47fb-afab-2384d6ac9361",
+        "timestamp": 1791917815220
+      }
+    ],
+    "9.1 Créer les tables `patient`/`visit` avec `tenant_id`, `created_by`, `deleted_at`, consentement, `UNIQUE(tenant_id, mrn)`, et les champs de sync `id` (UUIDv7 client), `version`, `updated_at` ; `national_id` optionnel.": [
+      {
+        "executionId": "eaa7b5aa-7776-477d-b9e6-999a7edc7247",
+        "chatSessionId": "sess_8c74d79c-4a6a-40d9-871b-07caadb0757b",
+        "timestamp": 1791918037173
+      },
+      {
+        "executionId": "eaa7b5aa-7776-477d-b9e6-999a7edc7247",
+        "chatSessionId": "sess_8c74d79c-4a6a-40d9-871b-07caadb0757b",
+        "timestamp": 1791918615714
+      }
+    ],
+    "9.2 Implémenter le CRUD cadré au tenant ; le serveur appose `tenant_id` ; DELETE logique ; accepte un `id` client ; jamais exposé publiquement ; PHI auditées.": [
+      {
+        "executionId": "eaa7b5aa-7776-477d-b9e6-999a7edc7247",
+        "chatSessionId": "sess_8c74d79c-4a6a-40d9-871b-07caadb0757b",
+        "timestamp": 1791918619627
+      },
+      {
+        "executionId": "eaa7b5aa-7776-477d-b9e6-999a7edc7247",
+        "chatSessionId": "sess_8c74d79c-4a6a-40d9-871b-07caadb0757b",
+        "timestamp": 1791919045222
+      }
+    ],
+    "9.3 Tests : isolation ; soft-delete conservé ; unicité patient ; consentement ; aucune PHI publique ; PHI auditée (vérifie P4, P5, P6).": [
+      {
+        "executionId": "eaa7b5aa-7776-477d-b9e6-999a7edc7247",
+        "chatSessionId": "sess_8c74d79c-4a6a-40d9-871b-07caadb0757b",
+        "timestamp": 1791919049146
+      },
+      {
+        "executionId": "eaa7b5aa-7776-477d-b9e6-999a7edc7247",
+        "chatSessionId": "sess_8c74d79c-4a6a-40d9-871b-07caadb0757b",
+        "timestamp": 1791919537581
+      }
+    ],
+    "9. Backend du domaine clinique (patient/visite) synchronisable, avec suppression logique, consentement, audit": [
+      {
+        "executionId": "eaa7b5aa-7776-477d-b9e6-999a7edc7247",
+        "chatSessionId": "sess_8c74d79c-4a6a-40d9-871b-07caadb0757b",
+        "timestamp": 1791919537665
+      }
+    ],
+    "10. Moteur de synchronisation côté serveur (push/pull, conflits)": [
+      {
+        "executionId": "dfdd1289-a35c-48d5-987a-a58c3479b690",
+        "chatSessionId": "sess_5433af4e-a643-4e73-a5db-639c16532193",
+        "timestamp": 1791919563970
+      },
+      {
+        "executionId": "dfdd1289-a35c-48d5-987a-a58c3479b690",
+        "chatSessionId": "sess_5433af4e-a643-4e73-a5db-639c16532193",
+        "timestamp": 1791920717523
+      }
+    ],
+    "11. Gestion du profil du centre médical + validation géo": [
+      {
+        "executionId": "dc3aa2c2-64a2-4692-adc2-cb779b8ad984",
+        "chatSessionId": "sess_ce1ec5ac-d211-47d3-a209-76df13c9859b",
+        "timestamp": 1791921155907
+      },
+      {
+        "executionId": "dc3aa2c2-64a2-4692-adc2-cb779b8ad984",
+        "chatSessionId": "sess_ce1ec5ac-d211-47d3-a209-76df13c9859b",
+        "timestamp": 1791921747135
+      }
+    ],
+    "11.1 `GET/PATCH /api/center/profile` pour que tenant_admin modifie nom, adresse, coordonnées, contact, horaires, services.": [
+      {
+        "executionId": "c1b1bc75-6b27-4db5-bf07-384aff6b2c03",
+        "chatSessionId": "sess_4ff6d206-2c4a-4023-af31-adfa5840bbcd",
+        "timestamp": 1791921768162
+      },
+      {
+        "executionId": "c1b1bc75-6b27-4db5-bf07-384aff6b2c03",
+        "chatSessionId": "sess_4ff6d206-2c4a-4023-af31-adfa5840bbcd",
+        "timestamp": 1791921889928
+      }
+    ],
+    "11.2 Valider que les coordonnées se situent dans le Togo (`ST_Within` PostGIS, repli boîte englobante).": [
+      {
+        "executionId": "25b2af1a-8822-45f3-8bc8-540fd16d440c",
+        "chatSessionId": "sess_849b3d51-d34b-444f-ac10-abc5b858f6fc",
+        "timestamp": 1791921931789
+      },
+      {
+        "executionId": "25b2af1a-8822-45f3-8bc8-540fd16d440c",
+        "chatSessionId": "sess_849b3d51-d34b-444f-ac10-abc5b858f6fc",
+        "timestamp": 1791922045992
+      }
+    ],
+    "11.3 Tests : coordonnées hors Togo rejetées ; mises à jour reflétées dans la projection publique (vérifie P7).": [
+      {
+        "executionId": "9e92d6e5-6ed2-4928-9fe7-b163f0d4f0f6",
+        "chatSessionId": "sess_22120a43-9ff7-425e-98c8-3c4cff8e9888",
+        "timestamp": 1791922073879
+      },
+      {
+        "executionId": "9e92d6e5-6ed2-4928-9fe7-b163f0d4f0f6",
+        "chatSessionId": "sess_22120a43-9ff7-425e-98c8-3c4cff8e9888",
+        "timestamp": 1791922221308
+      }
+    ],
+    "12. API annuaire public et carte (projection sûre)": [
+      {
+        "executionId": "8aad8c6e-8a42-4369-b86d-c68518842968",
+        "chatSessionId": "sess_96ce3e94-d7e5-40aa-b78e-deb26dce8ea4",
+        "timestamp": 1791922259861
+      },
+      {
+        "executionId": "8aad8c6e-8a42-4369-b86d-c68518842968",
+        "chatSessionId": "sess_96ce3e94-d7e5-40aa-b78e-deb26dce8ea4",
+        "timestamp": 1791923036133
+      }
+    ],
+    "12.1 `GET /api/public/regions`, `/regions/{code}/centers`, `/centers/{id}` ne renvoyant que les champs publics ; tenants actifs seulement.": [
+      {
+        "executionId": "4a829e60-83e0-4213-ab9d-113fff570abc",
+        "chatSessionId": "sess_930c7300-39c4-496e-a216-6a43204b794f",
+        "timestamp": 1791923059536
+      },
+      {
+        "executionId": "4a829e60-83e0-4213-ab9d-113fff570abc",
+        "chatSessionId": "sess_930c7300-39c4-496e-a216-6a43204b794f",
+        "timestamp": 1791923183190
+      }
+    ],
+    "12.2 `GET /api/public/geo/togo-regions.geojson` servant les limites des régions.": [
+      {
+        "executionId": "6995f1db-ae64-4c8d-8bc6-4a3766bea6b8",
+        "chatSessionId": "sess_c5fa27b8-0ea2-4eff-8800-e50ff9709b4e",
+        "timestamp": 1791923208037
+      },
+      {
+        "executionId": "6995f1db-ae64-4c8d-8bc6-4a3766bea6b8",
+        "chatSessionId": "sess_c5fa27b8-0ea2-4eff-8800-e50ff9709b4e",
+        "timestamp": 1791923362919
+      }
+    ],
+    "12.3 Tests : aucune fuite de PHI/champs privés ; tenants inactifs exclus ; région vide renvoie une liste vide (vérifie P4, P8).": [
+      {
+        "executionId": "baa9a2a3-77f9-4916-be29-cf41b5ade320",
+        "chatSessionId": "sess_c370b6cd-a9c2-4929-aaf0-5d66be857fd3",
+        "timestamp": 1791923388855
+      },
+      {
+        "executionId": "baa9a2a3-77f9-4916-be29-cf41b5ade320",
+        "chatSessionId": "sess_c370b6cd-a9c2-4929-aaf0-5d66be857fd3",
+        "timestamp": 1791923582839
+      }
+    ],
+    "13. Données d'amorçage pour le dev local": [
+      {
+        "executionId": "0638507c-4c4e-4075-9bfa-36c44774d657",
+        "chatSessionId": "sess_fdd32582-6642-47b3-ae79-c94c4500543b",
+        "timestamp": 1791923615431
+      },
+      {
+        "executionId": "0638507c-4c4e-4075-9bfa-36c44774d657",
+        "chatSessionId": "sess_fdd32582-6642-47b3-ae79-c94c4500543b",
+        "timestamp": 1791924501519
+      }
+    ],
+    "14.1 Mettre en place React + TypeScript + Vite + Tailwind ; styles mobile-first, navigation inférieure ; react-i18next (français par défaut).": [
+      {
+        "executionId": "4d6f0525-f1e7-47c5-be62-b1304af65b9c",
+        "chatSessionId": "sess_2696ef5f-a71e-4612-8e63-ede49e068366",
+        "timestamp": 1791924617022
+      },
+      {
+        "executionId": "4d6f0525-f1e7-47c5-be62-b1304af65b9c",
+        "chatSessionId": "sess_2696ef5f-a71e-4612-8e63-ede49e068366",
+        "timestamp": 1791924864289
+      }
+    ],
+    "14.2 Configurer la PWA : `manifest.webmanifest` + service worker (Workbox) pré-cachant l'app et les ressources de carte (installable, rechargeable hors ligne).": [
+      {
+        "executionId": "4d6f0525-f1e7-47c5-be62-b1304af65b9c",
+        "chatSessionId": "sess_2696ef5f-a71e-4612-8e63-ede49e068366",
+        "timestamp": 1791924869059
+      },
+      {
+        "executionId": "4d6f0525-f1e7-47c5-be62-b1304af65b9c",
+        "chatSessionId": "sess_2696ef5f-a71e-4612-8e63-ede49e068366",
+        "timestamp": 1791925311536
+      }
+    ],
+    "14.3 Mettre en place la base locale RxDB (IndexedDB) **chiffrée** ; schémas `patient`/`visit`/profil + outbox ; génération d'UUIDv7 côté client.": [
+      {
+        "executionId": "4d6f0525-f1e7-47c5-be62-b1304af65b9c",
+        "chatSessionId": "sess_2696ef5f-a71e-4612-8e63-ede49e068366",
+        "timestamp": 1791925316275
+      },
+      {
+        "executionId": "4d6f0525-f1e7-47c5-be62-b1304af65b9c",
+        "chatSessionId": "sess_2696ef5f-a71e-4612-8e63-ede49e068366",
+        "timestamp": 1791925808913
+      }
+    ],
+    "14.4 Implémenter `sync.ts` : push de l'outbox + pull des deltas, idempotence, reprise après coupure, application des conflits/révocations ; `SyncStatusBar` (en ligne/hors ligne + éléments en attente).": [
+      {
+        "executionId": "4d6f0525-f1e7-47c5-be62-b1304af65b9c",
+        "chatSessionId": "sess_2696ef5f-a71e-4612-8e63-ede49e068366",
+        "timestamp": 1791925812957
+      },
+      {
+        "executionId": "4d6f0525-f1e7-47c5-be62-b1304af65b9c",
+        "chatSessionId": "sess_2696ef5f-a71e-4612-8e63-ede49e068366",
+        "timestamp": 1791926109924
+      }
+    ],
+    "14.5 Implémenter la session locale tolérante hors-ligne (`session.ts`) et le verrouillage de la clé de chiffrement à la déconnexion.": [
+      {
+        "executionId": "4d6f0525-f1e7-47c5-be62-b1304af65b9c",
+        "chatSessionId": "sess_2696ef5f-a71e-4612-8e63-ede49e068366",
+        "timestamp": 1791926113604
+      },
+      {
+        "executionId": "4d6f0525-f1e7-47c5-be62-b1304af65b9c",
+        "chatSessionId": "sess_2696ef5f-a71e-4612-8e63-ede49e068366",
+        "timestamp": 1791926370468
+      }
+    ],
+    "14.6 Tests : CRUD hors ligne depuis la base locale ; rejeu idempotent ; PHI illisibles sans clé ; révocation purge la session (vérifie P9, P10, P13).": [
+      {
+        "executionId": "4d6f0525-f1e7-47c5-be62-b1304af65b9c",
+        "chatSessionId": "sess_2696ef5f-a71e-4612-8e63-ede49e068366",
+        "timestamp": 1791926374612
+      },
+      {
+        "executionId": "4d6f0525-f1e7-47c5-be62-b1304af65b9c",
+        "chatSessionId": "sess_2696ef5f-a71e-4612-8e63-ede49e068366",
+        "timestamp": 1791927343286
+      }
+    ],
+    "14. Fondation frontend local-first (PWA + base locale + moteur de sync)": [
+      {
+        "executionId": "4d6f0525-f1e7-47c5-be62-b1304af65b9c",
+        "chatSessionId": "sess_2696ef5f-a71e-4612-8e63-ede49e068366",
+        "timestamp": 1791927343357
+      }
+    ],
+    "15.1 Construire `TogoMap` avec MapLibre GL chargeant le GeoJSON des régions ; régions cliquables et surlignables ; GeoJSON mis en cache par le service worker.": [
+      {
+        "executionId": "098e6ed5-67b9-417b-afc7-1bcb3cd196a7",
+        "chatSessionId": "sess_91722527-b0f6-4141-97c2-f8b725560044",
+        "timestamp": 1791927376722
+      },
+      {
+        "executionId": "098e6ed5-67b9-417b-afc7-1bcb3cd196a7",
+        "chatSessionId": "sess_91722527-b0f6-4141-97c2-f8b725560044",
+        "timestamp": 1791927684309
+      }
+    ],
+    "15.2 Au clic sur une région, afficher les centres dans une feuille inférieure mobile ; lier au profil du centre.": [
+      {
+        "executionId": "098e6ed5-67b9-417b-afc7-1bcb3cd196a7",
+        "chatSessionId": "sess_91722527-b0f6-4141-97c2-f8b725560044",
+        "timestamp": 1791927687947
+      },
+      {
+        "executionId": "098e6ed5-67b9-417b-afc7-1bcb3cd196a7",
+        "chatSessionId": "sess_91722527-b0f6-4141-97c2-f8b725560044",
+        "timestamp": 1791927988264
+      }
+    ],
+    "15.3 Implémenter le repli en cas d'indisponibilité de WebGL (`RegionFallbackList`).": [
+      {
+        "executionId": "098e6ed5-67b9-417b-afc7-1bcb3cd196a7",
+        "chatSessionId": "sess_91722527-b0f6-4141-97c2-f8b725560044",
+        "timestamp": 1791927991781
+      },
+      {
+        "executionId": "098e6ed5-67b9-417b-afc7-1bcb3cd196a7",
+        "chatSessionId": "sess_91722527-b0f6-4141-97c2-f8b725560044",
+        "timestamp": 1791928233279
+      }
+    ],
+    "15.4 Vérifier le rendu mobile, la cliquabilité, et le rechargement hors ligne depuis le cache.": [
+      {
+        "executionId": "098e6ed5-67b9-417b-afc7-1bcb3cd196a7",
+        "chatSessionId": "sess_91722527-b0f6-4141-97c2-f8b725560044",
+        "timestamp": 1791928236646
+      },
+      {
+        "executionId": "098e6ed5-67b9-417b-afc7-1bcb3cd196a7",
+        "chatSessionId": "sess_91722527-b0f6-4141-97c2-f8b725560044",
+        "timestamp": 1791928567336
+      }
+    ],
+    "15. Carte interactive du Togo (accueil public)": [
+      {
+        "executionId": "098e6ed5-67b9-417b-afc7-1bcb3cd196a7",
+        "chatSessionId": "sess_91722527-b0f6-4141-97c2-f8b725560044",
+        "timestamp": 1791928567428
+      }
+    ],
+    "16. Pages annuaire public et profil de centre": [
+      {
+        "executionId": "40ce3a3a-2bad-4965-8142-17543fc2e942",
+        "chatSessionId": "sess_bc6a7058-f465-45f8-bc05-4c527f6453a7",
+        "timestamp": 1791963236985
+      },
+      {
+        "executionId": "40ce3a3a-2bad-4965-8142-17543fc2e942",
+        "chatSessionId": "sess_bc6a7058-f465-45f8-bc05-4c527f6453a7",
+        "timestamp": 1791964096475
+      }
+    ],
+    "17.1 Pages `Login` + `SetCredentials` et gestion de session (en ligne pour la 1ʳᵉ connexion, locale ensuite).": [
+      {
+        "executionId": "70dced98-4c68-4c08-b223-47f83e71a357",
+        "chatSessionId": "sess_b7cfa8b7-c598-4e4a-820d-1159ba0b893f",
+        "timestamp": 1791964133258
+      },
+      {
+        "executionId": "70dced98-4c68-4c08-b223-47f83e71a357",
+        "chatSessionId": "sess_b7cfa8b7-c598-4e4a-820d-1159ba0b893f",
+        "timestamp": 1791965650333
+      }
+    ],
+    "17.2 Éditeur de profil `CenterAdmin` avec sélecteur d'épingle sur carte contraint au Togo.": [
+      {
+        "executionId": "70dced98-4c68-4c08-b223-47f83e71a357",
+        "chatSessionId": "sess_b7cfa8b7-c598-4e4a-820d-1159ba0b893f",
+        "timestamp": 1791965653857
+      },
+      {
+        "executionId": "70dced98-4c68-4c08-b223-47f83e71a357",
+        "chatSessionId": "sess_b7cfa8b7-c598-4e4a-820d-1159ba0b893f",
+        "timestamp": 1791978990835
+      }
+    ],
+    "17.3 Interface CRUD `Patients` et `Visits` lisant/écrivant **la base locale** (jamais l'API directement), consentement à la création ; `ConflictBanner` pour les conflits à revoir.": [
+      {
+        "executionId": "70dced98-4c68-4c08-b223-47f83e71a357",
+        "chatSessionId": "sess_b7cfa8b7-c598-4e4a-820d-1159ba0b893f",
+        "timestamp": 1791978994861
+      },
+      {
+        "executionId": "70dced98-4c68-4c08-b223-47f83e71a357",
+        "chatSessionId": "sess_b7cfa8b7-c598-4e4a-820d-1159ba0b893f",
+        "timestamp": 1791979475489
+      }
+    ],
+    "17. Interface tenant authentifiée (local-first)": [
+      {
+        "executionId": "70dced98-4c68-4c08-b223-47f83e71a357",
+        "chatSessionId": "sess_b7cfa8b7-c598-4e4a-820d-1159ba0b893f",
+        "timestamp": 1791979475570
+      }
+    ],
+    "18. Vérification de bout en bout et revue de sécurité": [
+      {
+        "executionId": "5fc75023-3122-4d4a-b2ff-dbba5d0c24f1",
+        "chatSessionId": "sess_f3e1b631-2fef-474a-81d1-82d0edd00be6",
+        "timestamp": 1791979657504
+      },
+      {
+        "executionId": "5fc75023-3122-4d4a-b2ff-dbba5d0c24f1",
+        "chatSessionId": "sess_f3e1b631-2fef-474a-81d1-82d0edd00be6",
+        "timestamp": 1791980257104
+      }
+    ]
+  }
+}

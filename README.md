@@ -6,10 +6,13 @@
 > Togo ; le personnel soignant travaille dans une application qui fonctionne
 > **même sans connexion internet** et se synchronise quand le réseau revient.
 
-**État du projet : spécifications terminées, implémentation à venir.** Le code
-applicatif n'est pas encore présent dans ce dépôt. Les spécifications complètes
-(exigences, conception, plan de tâches) se trouvent dans
-[`.kiro/specs/medical-centers-togo/`](.kiro/specs/medical-centers-togo/).
+**État du projet : implémenté (v1).** Les 18 tâches du plan sont réalisées :
+backend FastAPI, PWA React local-first, carte publique, annuaire, interface
+tenant et synchronisation. La pile démarre en une commande (voir *Démarrage
+rapide*). Les spécifications complètes (exigences, conception, plan de tâches) se
+trouvent dans [`.kiro/specs/medical-centers-togo/`](.kiro/specs/medical-centers-togo/),
+et le rapport de vérification de bout en bout dans
+[`docs/E2E_VERIFICATION.md`](docs/E2E_VERIFICATION.md).
 
 ---
 
@@ -58,22 +61,41 @@ Le détail et les justifications sont dans
 
 ## Démarrage rapide
 
-> ⚠️ L'ossature de code n'est pas encore créée (voir *État du projet*). Une fois la
-> tâche 1 du plan réalisée, le démarrage se fera ainsi :
-
 ```bash
 # Cloner le dépôt
 git clone <url-du-dépôt>
 cd dme
 
-# Copier la configuration d'exemple
+# Copier la configuration d'exemple (créée automatiquement par les scripts
+# ci-dessous si elle manque)
 cp .env.example .env
 
 # Lancer toute la pile (Postgres/PostGIS + backend + frontend)
 docker compose up
 ```
 
-Services attendus une fois l'implémentation démarrée :
+Des scripts d'enveloppe gèrent le cycle de vie de la pile et créent `.env` au
+premier lancement si besoin :
+
+```bash
+# Linux / macOS
+./dme.sh start      # démarre (build si nécessaire) en arrière-plan
+./dme.sh stop       # arrête (données conservées)
+./dme.sh logs       # suit les journaux
+./dme.sh down       # arrête ET supprime les volumes (confirmation requise)
+```
+
+```bat
+rem Windows
+dme start
+dme stop
+dme logs
+dme down
+```
+
+Actions communes : `start` · `stop` · `restart` · `status` · `logs` · `build` · `down`.
+
+Services exposés :
 
 | Service   | URL                      | Description |
 |-----------|--------------------------|-------------|
@@ -93,11 +115,14 @@ dme/
 │   ├── design.md                       # Conception & architecture
 │   └── tasks.md                        # Plan d'implémentation
 ├── docs/
-│   └── ARCHITECTURE.md                 # Vue d'ensemble de l'architecture
-├── backend/                            # (à venir) API FastAPI
-├── frontend/                           # (à venir) PWA React
-├── data/                               # (à venir) GeoJSON des régions du Togo
-├── docker-compose.yml                  # (à venir) pile locale
+│   ├── ARCHITECTURE.md                 # Vue d'ensemble de l'architecture
+│   └── E2E_VERIFICATION.md             # Rapport de vérification de bout en bout
+├── backend/                            # API FastAPI (Python 3.12, async)
+├── frontend/                           # PWA React + TypeScript (Vite, RxDB)
+├── data/                               # GeoJSON des régions du Togo
+├── docker-compose.yml                  # Pile locale (db + api + web)
+├── dme.sh                              # Script de cycle de vie (Linux/macOS)
+├── dme.bat                             # Script de cycle de vie (Windows)
 ├── CONTRIBUTING.md
 ├── LICENSE
 └── README.md
@@ -109,19 +134,23 @@ dme/
 - **Conception** — [`.kiro/specs/.../design.md`](.kiro/specs/medical-centers-togo/design.md)
 - **Plan de tâches** — [`.kiro/specs/.../tasks.md`](.kiro/specs/medical-centers-togo/tasks.md)
 - **Architecture (synthèse)** — [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
+- **Vérification de bout en bout** — [`docs/E2E_VERIFICATION.md`](docs/E2E_VERIFICATION.md)
 - **Contribuer** — [`CONTRIBUTING.md`](CONTRIBUTING.md)
 
-## Feuille de route
+## Jalons livrés (v1)
 
-L'implémentation suit le plan ordonné par dépendance dans `tasks.md` :
+L'implémentation a suivi le plan ordonné par dépendance dans `tasks.md` :
 
-1. Pile locale (Docker) et fondation backend
-2. Contrat d'API + protocole de synchronisation (contract-first)
-3. Multi-tenant + RLS, puis audit distribué (fondations de sécurité)
-4. Domaine clinique synchronisable + moteur de synchronisation serveur
-5. Fondation frontend local-first (PWA, base locale chiffrée, sync)
-6. Carte publique, annuaire, interface tenant
-7. Vérification de bout en bout (isolation, hors ligne, conflits, sécurité)
+1. ✅ Pile locale (Docker) et fondation backend
+2. ✅ Contrat d'API + protocole de synchronisation (contract-first)
+3. ✅ Multi-tenant + RLS, puis audit distribué (fondations de sécurité)
+4. ✅ Domaine clinique synchronisable + moteur de synchronisation serveur
+5. ✅ Fondation frontend local-first (PWA, base locale chiffrée, sync)
+6. ✅ Carte publique, annuaire, interface tenant
+7. ✅ Vérification de bout en bout (isolation, hors ligne, conflits, sécurité)
+
+Hors périmètre v1 (voir les exigences) : DME clinique complet, rendez-vous,
+facturation, applications natives, paiements/SMS.
 
 ## Sécurité et données de santé
 
