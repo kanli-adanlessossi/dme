@@ -26,6 +26,10 @@ Tâche 9.1 — domaine clinique synchronisable (PHI, cadré au tenant) :
 Tâche 10 — moteur de synchronisation côté serveur (cadré au tenant) :
 - `SyncMutation` : registre d'idempotence du push (clé = `mutation_id`, P10) ;
 - `SyncConflict` : journal des conflits résolus en LWW (perdant conservé, P12).
+
+Tâche 9.2 (G-9) — durcissement JWT : rotation + denylist du refresh :
+- `RefreshToken` : refresh émis (jti/family/consumed_at), consulté sur le seul
+  chemin en ligne `/api/auth/refresh` (pas de RLS par-tenant, chemin pré-auth).
 """
 
 from __future__ import annotations
@@ -35,6 +39,7 @@ from app.models.audit_log import AuditLog
 from app.models.medical_center import MedicalCenter
 from app.models.medical_center_service import MedicalCenterService
 from app.models.patient import Patient
+from app.models.refresh_token import RefreshToken
 from app.models.region import Region
 from app.models.service_type import ServiceType
 from app.models.sync_conflict import SyncConflict
@@ -48,6 +53,7 @@ __all__ = [
     "MedicalCenter",
     "MedicalCenterService",
     "Patient",
+    "RefreshToken",
     "Region",
     "ServiceType",
     "SyncConflict",

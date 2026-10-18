@@ -19,10 +19,14 @@ d'authentification ») :
 
 from __future__ import annotations
 
+import uuid
+from datetime import UTC, datetime, timedelta
+
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.audit import build_event, record_audit_standalone
+from app.core.config import get_settings
 from app.core.db import get_session
 from app.core.tokens import (
     TOKEN_TYPE_REFRESH,
@@ -55,8 +59,20 @@ from app.services.lockout import (
     register_failure,
     register_success,
 )
+from app.services.refresh_tokens import (
+    RefreshDenied,
+    consume_refresh,
+    record_issued_refresh,
+)
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
+
+def _refresh_expires_at() -> datetime:
+    """Échéance d'un refresh émis maintenant, alignée sur le TTL configuré (14 j)."""
+    return datetime.now(UTC) + timedelta(
+        seconds=get_settings().jwt_refresh_ttl_seconds
+    )
+
 
 # 401 générique partagé par login et refresh : jamais de cause distinctive (P3).
 _INVALID_CREDENTIALS = HTTPException(
@@ -172,17 +188,33 @@ async def login(
         )
         raise _INVALID_CREDENTIALS from None
 
-    # Succès : on réinitialise l'état de verrouillage et on valide la mutation.
+    # Succès : on réinitialise l'état de verrouillage.
     register_success(user)
-    await session.commit()
 
-    # Succès : jetons dérivés du compte authentifié (jamais du corps — P2).
+    # Succès : jetons dérivés du compte authentifié (jamais du corps — P2). On
+    # ouvre une nouvelle famille de rotation (`family_id`) et un `jti` unique, puis
+    # on enregistre le refresh émis dans la denylist (chemin en ligne, G-9). La
+    # réinitialisation du verrou ET l'insertion du refresh sont validées ensemble.
     access = create_access_token(
         sub=user.id, tenant_id=user.tenant_id, role=user.role
     )
+    family_id = uuid.uuid4()
+    jti = uuid.uuid4()
     refresh_token = create_refresh_token(
-        sub=user.id, tenant_id=user.tenant_id, role=user.role
+        sub=user.id,
+        tenant_id=user.tenant_id,
+        role=user.role,
+        jti=jti,
+        family_id=family_id,
     )
+    await record_issued_refresh(
+        session,
+        jti=jti,
+        family_id=family_id,
+        user_id=user.id,
+        expires_at=_refresh_expires_at(),
+    )
+    await session.commit()
 
     await record_audit_standalone(
         build_event(
@@ -210,24 +242,61 @@ async def login(
     },
     summary="Rafraîchit la paire de jetons depuis un refresh token valide",
 )
-async def refresh(payload: RefreshRequest) -> TokenResponse:
+async def refresh(
+    payload: RefreshRequest,
+    session: AsyncSession = Depends(get_session),
+) -> TokenResponse:
     """Émet une nouvelle paire de jetons à partir d'un refresh valide (rotation).
 
-    Vérifie le refresh token (signature, expiration, type) ; redérive `tenant_id`
-    et `role` depuis le jeton (jamais du corps — P2) et émet une paire access +
-    refresh fraîche. Un refresh invalide/expiré renvoie un 401 générique.
+    Vérifie le refresh token (signature, expiration, type), **consomme** son `jti`
+    dans la denylist serveur (chemin EN LIGNE, G-9), puis redérive `tenant_id` et
+    `role` depuis le jeton (jamais du corps — P2) et émet une paire access +
+    refresh fraîche. Le nouveau refresh conserve le `family_id` d'origine (rotation
+    continue) avec un `jti` neuf.
+
+    Refus en 401 générique (P3) : refresh invalide/expiré/mauvais type, refresh
+    **hérité sans `jti`** (émis avant la tâche 9.2 — invalidé volontairement : la
+    fenêtre est bornée par le TTL de 14 j), `jti` déjà consommé (rejeu) ou inconnu.
+    Un rejeu invalide toute la famille (détection de vol, voir service).
     """
     try:
         claims = decode_token(payload.refresh, expected_type=TOKEN_TYPE_REFRESH)
     except TokenError:
         raise _INVALID_REFRESH from None
 
+    # Refresh hérité (pré-9.2) sans `jti`/`family_id` : aucune entrée de denylist
+    # ne peut le couvrir, on le refuse (durcissement assumé, borné par le TTL).
+    if claims.jti is None or claims.family_id is None:
+        raise _INVALID_REFRESH from None
+
+    # Consommation atomique + anti-rejeu (invalide la famille en cas de rejeu).
+    try:
+        await consume_refresh(session, jti=claims.jti)
+    except RefreshDenied:
+        # On valide l'éventuelle invalidation de famille posée par le service.
+        await session.commit()
+        raise _INVALID_REFRESH from None
+
+    # Rotation : nouveau `jti`, MÊME `family_id` (continuité de la famille).
+    new_jti = uuid.uuid4()
     access = create_access_token(
         sub=claims.sub, tenant_id=claims.tenant_id, role=claims.role
     )
     refresh_token = create_refresh_token(
-        sub=claims.sub, tenant_id=claims.tenant_id, role=claims.role
+        sub=claims.sub,
+        tenant_id=claims.tenant_id,
+        role=claims.role,
+        jti=new_jti,
+        family_id=claims.family_id,
     )
+    await record_issued_refresh(
+        session,
+        jti=new_jti,
+        family_id=claims.family_id,
+        user_id=claims.sub,
+        expires_at=_refresh_expires_at(),
+    )
+    await session.commit()
 
     return TokenResponse(
         access=access,

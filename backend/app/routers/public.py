@@ -21,15 +21,24 @@ Garanties observables ici :
   public actif renvoie `[]`, pas une erreur. Un code de région hors des 5
   canoniques est rejeté par le type `RegionCode` (422) au niveau du chemin.
 - **Centre inconnu/inactif → 404.** Les deux cas sont indiscernables côté public.
+
+Limitation de débit (G-4, exigence 4.1). Chaque route publique est décorée par
+`@limiter.limit(public_rate_limit())` (SlowAPI) : au-delà du seuil configuré
+(`PUBLIC_RATE_LIMIT`, défaut 60 req/min/IP), la réponse est **429**, au corps minimal
+(aucune fuite d'information). C'est le REPLI applicatif documenté ; en production, la
+limitation vit de préférence au reverse proxy (voir `deploy/reverse-proxy/`). Le
+paramètre `request: Request` est requis par SlowAPI pour accéder à l'IP cliente ; il
+ne change ni la projection sûre (P4) ni la règle « actifs seulement » (P8).
 """
 
 from __future__ import annotations
 
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.rate_limit import limiter, public_rate_limit
 from app.core.tenant_context import public_session
 from app.schemas.admin import GeoPoint, RegionCode
 from app.schemas.center import OpeningHours
@@ -96,10 +105,19 @@ def _to_detail(center: PublicCenterData) -> PublicCenterDetail:
     response_model=list[PublicRegion],
     summary="Liste les 5 régions du Togo (public)",
 )
+@limiter.limit(public_rate_limit())
 async def list_regions(
+    request: Request,
+    response: Response,
     session: AsyncSession = Depends(public_session),
 ) -> list[PublicRegion]:
-    """Renvoie les 5 régions + le nombre de centres publics actifs (exigence 7)."""
+    """Renvoie les 5 régions + le nombre de centres publics actifs (exigence 7).
+
+    Donnée de référence quasi statique : porte `Cache-Control: public, max-age=300`
+    (G-4, exigence 4 AC2, NFR-2). L'API connaît la nature des données ; le proxy
+    peut ajouter un cache de bord.
+    """
+    response.headers["Cache-Control"] = "public, max-age=300"
     regions = await list_public_regions(session)
     return [
         PublicRegion(
@@ -119,7 +137,9 @@ async def list_regions(
     },
     summary="Liste les centres publics actifs d'une région",
 )
+@limiter.limit(public_rate_limit())
 async def list_region_centers_endpoint(
+    request: Request,
     code: RegionCode,
     session: AsyncSession = Depends(public_session),
 ) -> list[PublicCenterSummary]:
@@ -139,7 +159,9 @@ async def list_region_centers_endpoint(
     },
     summary="Profil public d'un centre (champs non sensibles, aucune PHI)",
 )
+@limiter.limit(public_rate_limit())
 async def get_center(
+    request: Request,
     center_id: UUID,
     session: AsyncSession = Depends(public_session),
 ) -> PublicCenterDetail:
@@ -159,13 +181,19 @@ async def get_center(
     response_model=GeoJSONFeatureCollection,
     summary="Limites GeoJSON des régions du Togo pour la carte",
 )
-async def togo_regions_geojson() -> GeoJSONFeatureCollection:
+@limiter.limit(public_rate_limit())
+async def togo_regions_geojson(
+    request: Request,
+    response: Response,
+) -> GeoJSONFeatureCollection:
     """Renvoie les limites des régions (FeatureCollection) pour MapLibre (exigence 7.6).
 
     Donnée publique de référence servie depuis `data/togo-regions.geojson` (jeu
     ouvert et attribué), mise en cache par le service worker (NFR-11). Aucun accès
-    base, aucune PHI.
+    base, aucune PHI. Porte `Cache-Control: public, max-age=300` (G-4, exigence 4
+    AC2, NFR-2) : donnée quasi statique, le proxy peut ajouter un cache de bord.
     """
+    response.headers["Cache-Control"] = "public, max-age=300"
     try:
         raw = load_regions_geojson()
     except RegionsGeoJSONUnavailableError as exc:

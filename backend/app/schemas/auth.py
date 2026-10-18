@@ -49,7 +49,7 @@ class TokenResponse(BaseModel):
         ...,
         description="Durée de vie de l'access token en secondes "
         "(dimensionnée pour une journée hors ligne, NFR-7).",
-        examples=[43200],
+        examples=[28800],
     )
     tenant_id: UUID | None = Field(
         None,

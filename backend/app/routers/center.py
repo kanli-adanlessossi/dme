@@ -146,12 +146,12 @@ async def update_profile(
         raise tenant_resource_not_found("Profil de centre introuvable.") from None
     except CoordinatesOutsideTogoError:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="Les coordonnées doivent se situer à l'intérieur du Togo.",
         ) from None
     except UnknownServiceTypeError as exc:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=f"Type de service inconnu : {exc}.",
         ) from None
 

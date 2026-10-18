@@ -14,6 +14,23 @@ from pathlib import Path
 from pydantic import computed_field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+# Secret de signature JWT par défaut, destiné UNIQUEMENT au développement et aux
+# tests locaux. Centralisé ici pour que le garde-fou de production
+# (`Settings.validate_production_safety`) puisse détecter qu'un déploiement a
+# oublié de le surcharger. Un seul point de vérité : le défaut du champ
+# `jwt_secret` ci-dessous réutilise cette constante.
+_DEV_JWT_SECRET = "dev-insecure-change-me-0000000000000000000000000000"
+
+
+class UnsafeProductionConfigError(RuntimeError):
+    """Configuration non sûre détectée en production (fail-closed, G-1).
+
+    Levée au démarrage (`lifespan`) lorsque `environment == "production"` et
+    qu'un réglage sensible conserve une valeur de développement (secret JWT par
+    défaut, `debug` actif, rôle applicatif `APP_DB_*` absent). Le message nomme
+    le réglage fautif. Hors production, aucune vérification n'est effectuée.
+    """
+
 
 class Settings(BaseSettings):
     """Configuration applicative dérivée de l'environnement.
@@ -47,13 +64,52 @@ class Settings(BaseSettings):
         "http://127.0.0.1:5173",
     ]
 
-    @field_validator("cors_allow_origins", mode="before")
+    # Méthodes HTTP autorisées lors d'une requête cross-origin. Explicites (jamais
+    # `*`) : le pré-vol CORS n'annonce que ce dont le frontend a besoin — GET/POST/
+    # PATCH/DELETE pour les routes métier et OPTIONS pour le pré-vol lui-même
+    # (NFR-2). Un joker est refusé par conception ; un `*` combiné à
+    # `allow_credentials=True` est d'ailleurs invalide au sens de la spéc CORS.
+    # Surchargeable via `CORS_ALLOW_METHODS` (valeurs séparées par des virgules).
+    cors_allow_methods: list[str] = [
+        "GET",
+        "POST",
+        "PATCH",
+        "DELETE",
+        "OPTIONS",
+    ]
+
+    # En-têtes de requête autorisés en cross-origin. Explicites (jamais `*`) :
+    # `Authorization` porte le jeton Bearer des routes protégées et `Content-Type`
+    # les corps JSON ; ces deux en-têtes suffisent au frontend (NFR-2). Le joker
+    # est refusé par conception. Surchargeable via `CORS_ALLOW_HEADERS` (valeurs
+    # séparées par des virgules).
+    cors_allow_headers: list[str] = [
+        "Authorization",
+        "Content-Type",
+    ]
+
+    @field_validator(
+        "cors_allow_origins",
+        "cors_allow_methods",
+        "cors_allow_headers",
+        mode="before",
+    )
     @classmethod
-    def _split_cors_origins(cls, value: object) -> object:
+    def _split_csv_list(cls, value: object) -> object:
         """Accepte une chaîne CSV (`a,b`) depuis l'environnement, ou une liste."""
         if isinstance(value, str):
             return [item.strip() for item in value.split(",") if item.strip()]
         return value
+
+    # --- Limitation de débit des endpoints publics (tâche 4.1 / G-4 / NFR-2) ---
+    # Seuil appliqué à `/api/public/*`. La conception place la limitation au reverse
+    # proxy (Nginx `limit_req`, voir `deploy/reverse-proxy/`) ; ce réglage pilote le
+    # REPLI applicatif (SlowAPI, `app.core.rate_limit`) qui rend le 429 reproductible
+    # sans proxy en façade. Format « <nombre>/<fenêtre> » (syntaxe `limits`), par
+    # défaut « 60/minute » (60 req/min/IP, exigence 4.1). Jamais codé en dur :
+    # surchargeable via `PUBLIC_RATE_LIMIT`. Seules les routes publiques sont
+    # limitées ; les routes authentifiées et `/health` ne le sont pas.
+    public_rate_limit: str = "60/minute"
 
     # --- Base de données PostgreSQL + PostGIS ---
     postgres_host: str = "db"
@@ -80,15 +136,18 @@ class Settings(BaseSettings):
     # Secret de signature des JWT (HS256). JAMAIS codé en dur : fourni par
     # l'environnement (`JWT_SECRET`, voir `.env.example`). Le défaut n'est destiné
     # qu'au développement/aux tests locaux ; un déploiement DOIT le surcharger.
-    jwt_secret: str = "dev-insecure-change-me-0000000000000000000000000000"
+    jwt_secret: str = _DEV_JWT_SECRET
     jwt_algorithm: str = "HS256"
-    # Durée de vie de l'access token, dimensionnée pour couvrir une journée de
-    # travail hors ligne (NFR-7). Par défaut 12 h ; configurable via
+    # Durée de vie de l'access token, raccourcie à 8 h (G-9). Huit heures couvrent
+    # encore une journée de travail hors ligne typique (NFR-7) tout en réduisant
+    # d'un tiers la fenêtre d'exposition : comme la révocation est stateless, celle
+    # d'un acteur hors ligne reste bornée par ce TTL d'access. Configurable via
     # `JWT_ACCESS_TTL_SECONDS` pour l'ajuster à la réalité terrain d'un centre.
-    jwt_access_ttl_seconds: int = 12 * 60 * 60
-    # Durée de vie du refresh token (rotatif). Par défaut 30 jours : couvre une
-    # longue période hors ligne sans réauthentification serveur (NFR-7).
-    jwt_refresh_ttl_seconds: int = 30 * 24 * 60 * 60
+    jwt_access_ttl_seconds: int = 8 * 60 * 60  # 8 h (G-9 : access raccourci)
+    # Durée de vie du refresh token (rotatif), ramenée à 14 j (G-9) : couvre une
+    # longue période hors ligne sans réauthentification serveur (NFR-7), avec une
+    # fenêtre plus courte qu'auparavant. Configurable via `JWT_REFRESH_TTL_SECONDS`.
+    jwt_refresh_ttl_seconds: int = 14 * 24 * 60 * 60  # 14 j (G-9)
 
     # --- Intégration des tenants (tâche 8 / exigence 3.2) ---
     # Durée de vie du jeton de configuration à usage unique remis au tenant_admin
@@ -188,6 +247,50 @@ class Settings(BaseSettings):
             f"postgresql+asyncpg://{self.postgres_user}:{self.postgres_password}"
             f"@{self.postgres_host}:{self.postgres_port}/{self.postgres_db}"
         )
+
+    def validate_production_safety(self) -> None:
+        """Refuse un démarrage non sûr en production (fail-closed, G-1 / NFR-1, NFR-2).
+
+        UNIQUEMENT lorsque `environment == "production"`, lève
+        `UnsafeProductionConfigError` — en nommant le réglage fautif — si l'un
+        des cas suivants est vrai :
+
+        - le secret de signature JWT vaut encore le défaut de développement
+          (`_DEV_JWT_SECRET`) : les jetons seraient forgeables ;
+        - `debug` est actif : fuite d'informations sensibles ;
+        - le rôle applicatif non-privilégié n'est pas configuré
+          (`app_db_user` / `app_db_password` absents) : sans ce rôle `APP_DB_*`
+          runtime (NOBYPASSRLS), l'application systématique de la RLS n'est pas
+          garantie.
+
+        Hors production (développement, tests), la méthode est un no-op : elle
+        n'introduit aucune nouvelle erreur sur le chemin des requêtes et ne casse
+        pas la collecte des tests (qui importe l'app avec des valeurs de dev).
+        """
+        if self.environment != "production":
+            return
+
+        if self.jwt_secret == _DEV_JWT_SECRET:
+            raise UnsafeProductionConfigError(
+                "Configuration de production non sûre : `jwt_secret` utilise "
+                "encore le secret de développement par défaut. Surchargez "
+                "`JWT_SECRET` par une valeur unique et aléatoire."
+            )
+
+        if self.debug:
+            raise UnsafeProductionConfigError(
+                "Configuration de production non sûre : `debug` est actif. "
+                "Posez `DEBUG=false` en production."
+            )
+
+        if not self.app_db_user or not self.app_db_password:
+            raise UnsafeProductionConfigError(
+                "Configuration de production non sûre : le rôle applicatif "
+                "non-privilégié n'est pas configuré (`app_db_user` / "
+                "`app_db_password`). Fournissez `APP_DB_USER` et "
+                "`APP_DB_PASSWORD` (rôle NOBYPASSRLS) pour garantir "
+                "l'application systématique de la RLS."
+            )
 
 
 @lru_cache

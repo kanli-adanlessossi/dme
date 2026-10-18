@@ -106,6 +106,30 @@ Services exposés :
 
 Prérequis : [Docker](https://docs.docker.com/get-docker/) et Docker Compose.
 
+## Intégration continue
+
+La CI (GitHub Actions, [`.github/workflows/ci.yml`](.github/workflows/ci.yml))
+démarre un service **PostgreSQL + PostGIS**, applique les migrations
+(`alembic upgrade head`) puis exécute la **suite de tests complète** — y compris
+les tests d'intégration qui vérifient l'isolation RLS, la synchronisation et
+l'audit contre un vrai moteur (et non en les ignorant faute de base).
+
+## Déploiement de production
+
+La pile locale (`docker compose up` / `./dme.sh start`) reste le serveur de dév
+Vite inchangé. Pour la production, deux artefacts dédiés complètent la pile :
+
+- **Image frontend de production** — le `frontend/Dockerfile` multi-stage construit
+  l'app (`vite build`) et la sert via `nginx:alpine` ([`frontend/nginx.conf`](frontend/nginx.conf)) :
+  fallback SPA, CSP applicative sans joker, en-têtes de sécurité et cache des assets.
+- **Reverse proxy** — [`deploy/reverse-proxy/nginx.conf`](deploy/reverse-proxy/nginx.conf)
+  porte la limitation de débit des endpoints publics (429 au-delà du seuil) et la
+  terminaison TLS/HSTS devant l'API.
+
+Le durcissement de mise en production (garde-fou de démarrage, en-têtes de
+sécurité, CORS restreint, limitation de débit, CI réelle, durcissement JWT) est
+spécifié dans [`.kiro/specs/production-readiness-gaps/`](.kiro/specs/production-readiness-gaps/).
+
 ## Structure du dépôt
 
 ```
@@ -119,8 +143,11 @@ dme/
 │   └── E2E_VERIFICATION.md             # Rapport de vérification de bout en bout
 ├── backend/                            # API FastAPI (Python 3.12, async)
 ├── frontend/                           # PWA React + TypeScript (Vite, RxDB)
+│   └── nginx.conf                      # Config Nginx de l'image frontend de prod
+├── deploy/reverse-proxy/               # Config Nginx du reverse proxy (rate-limit, TLS)
 ├── data/                               # GeoJSON des régions du Togo
 ├── docker-compose.yml                  # Pile locale (db + api + web)
+├── .github/workflows/ci.yml            # CI : suite complète sur PostgreSQL/PostGIS
 ├── dme.sh                              # Script de cycle de vie (Linux/macOS)
 ├── dme.bat                             # Script de cycle de vie (Windows)
 ├── CONTRIBUTING.md

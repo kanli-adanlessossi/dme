@@ -38,7 +38,6 @@ from app.core.security import (
 from app.core.tokens import (
     TOKEN_TYPE_ACCESS,
     create_access_token,
-    create_refresh_token,
     decode_token,
 )
 from app.main import app
@@ -60,14 +59,25 @@ class _FakeResult:
         return self._user
 
 
+class _EmptyResult:
+    """Résultat factice d'un INSERT/UPDATE sans lignes renvoyées (`first()` → None)."""
+
+    def first(self) -> None:
+        return None
+
+
 class _FakeSession:
     """Session factice : renvoie l'`AppUser` configuré et compte les commits.
 
-    `execute` sert au lookup e-mail du routeur ; `commit` absorbe les validations
-    de l'état de verrouillage (incrément/réinit) sans base réelle. `get` sert au
-    contrôle de statut du tenant (exigence 3.4) : par défaut on renvoie un tenant
-    **actif** afin que les tests de login existants ne soient pas affectés ; un
-    test de désactivation installe un tenant `inactive` explicite.
+    `execute` sert au lookup e-mail du routeur ET aux énoncés SQL bruts de la
+    denylist de refresh (tâche 9.2, insert/update/select par `text()`) : on
+    reconnaît le lookup e-mail (seul `select()` ORM) via l'attribut `whereclause`,
+    et on renvoie un résultat vide pour les énoncés `text()` (leur valeur de retour
+    n'est pas exploitée par le login ; les tests de refresh contre une vraie
+    denylist relèvent du module DB `test_refresh_denylist_db`). `commit` absorbe les
+    validations sans base réelle. `get` sert au contrôle de statut du tenant
+    (exigence 3.4) : par défaut un tenant **actif** ; un test de désactivation
+    installe un tenant `inactive` explicite.
     """
 
     def __init__(
@@ -77,7 +87,11 @@ class _FakeSession:
         self._tenant = tenant
         self.commits = 0
 
-    async def execute(self, _statement: object) -> _FakeResult:
+    async def execute(self, statement: object, _params: object = None) -> object:
+        # Les énoncés SQL bruts (`text()`) de la denylist n'ont pas de `whereclause`
+        # de type ORM : on renvoie un résultat vide (valeur non exploitée au login).
+        if not hasattr(statement, "whereclause"):
+            return _EmptyResult()
         return _FakeResult(self._user)
 
     async def get(self, _model: object, pk: object) -> Tenant | None:
@@ -381,24 +395,36 @@ def test_login_succes_reinitialise_le_compteur_d_echecs(
     assert _current_session is not None and _current_session.commits == 1
 
 
-def test_refresh_valide_emet_nouvel_access(client: TestClient) -> None:
-    """Un refresh valide → 200 et un access vérifiable portant les mêmes claims."""
-    sub = uuid.uuid4()
-    tenant_id = uuid.uuid4()
-    refresh_token = create_refresh_token(
-        sub=sub, tenant_id=tenant_id, role="tenant_admin"
+def test_refresh_sans_jti_herite_est_refuse(client: TestClient) -> None:
+    """Un refresh « hérité » sans `jti`/`family_id` → 401 (durcissement 9.2, G-9).
+
+    Depuis la tâche 9.2, `/refresh` exige un `jti` enregistré dans la denylist. Un
+    refresh émis avant ce durcissement (sans `jti`) est volontairement refusé : la
+    fenêtre est bornée par le TTL de 14 j. Le chemin heureux (refresh valide →
+    rotation) et le rejeu (→ 401) sont vérifiés contre une vraie base dans
+    `test_refresh_denylist_db` (la session factice ici ne modélise pas la denylist).
+    """
+    # Refresh forgé SANS jti/family (via `_encode` d'un payload refresh minimal) :
+    # on réutilise l'outil JWT bas niveau pour produire un refresh hérité valide
+    # en signature mais dépourvu de `jti`.
+    import jwt as _jwt
+
+    from app.core.tokens import TOKEN_TYPE_REFRESH
+
+    settings = get_settings()
+    legacy_refresh = _jwt.encode(
+        {
+            "sub": str(uuid.uuid4()),
+            "tenant_id": str(uuid.uuid4()),
+            "role": "tenant_admin",
+            "type": TOKEN_TYPE_REFRESH,
+            "exp": int((datetime.now(UTC) + timedelta(days=1)).timestamp()),
+        },
+        settings.jwt_secret,
+        algorithm=settings.jwt_algorithm,
     )
-
-    resp = client.post("/api/auth/refresh", json={"refresh": refresh_token})
-    assert resp.status_code == 200
-    body = resp.json()
-    assert body["role"] == "tenant_admin"
-    assert body["tenant_id"] == str(tenant_id)
-
-    claims = decode_token(body["access"], expected_type=TOKEN_TYPE_ACCESS)
-    assert claims.sub == sub
-    assert claims.tenant_id == tenant_id
-    assert claims.role == "tenant_admin"
+    resp = client.post("/api/auth/refresh", json={"refresh": legacy_refresh})
+    assert resp.status_code == 401
 
 
 def test_refresh_rejette_un_access_token(client: TestClient) -> None:

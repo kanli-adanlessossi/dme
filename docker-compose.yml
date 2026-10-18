@@ -53,6 +53,13 @@ services:
   web:
     build:
       context: ./frontend
+      # Le Dockerfile frontend est multi-stage (G-3) : le dernier stage `prod`
+      # (nginx servant `dist/`) est la cible par défaut de `docker build`. La
+      # pile LOCALE doit, elle, conserver le serveur de dev Vite inchangé
+      # (NFR-12 : `docker compose up` se comporte comme avant). On épingle donc
+      # explicitement le stage `dev` (node + `npm run dev`, hot reload, lit
+      # VITE_API_URL au runtime) pour ce service — sans toucher à db/api.
+      target: dev
     environment:
       VITE_API_URL: ${VITE_API_URL:-http://localhost:8000}
     ports:
