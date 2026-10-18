@@ -143,7 +143,11 @@ async def test_get_current_principal_refresh_rejete_401() -> None:
     from fastapi.security import HTTPAuthorizationCredentials
 
     refresh = create_refresh_token(
-        sub=uuid.uuid4(), tenant_id=uuid.uuid4(), role="staff"
+        sub=uuid.uuid4(),
+        tenant_id=uuid.uuid4(),
+        role="staff",
+        jti=uuid.uuid4(),
+        family_id=uuid.uuid4(),
     )
     with pytest.raises(HTTPException) as exc:
         await get_current_principal(

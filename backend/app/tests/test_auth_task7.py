@@ -52,13 +52,25 @@ class _FakeResult:
         return self._user
 
 
+class _EmptyExecuteResult:
+    """Résultat factice d'un INSERT/UPDATE de la denylist (`first()` → None)."""
+
+    def first(self) -> None:
+        return None
+
+
 class _FakeSession:
     """Session factice : renvoie l'`AppUser` configuré et absorbe `commit`."""
 
     def __init__(self, user: AppUser | None) -> None:
         self._user = user
 
-    async def execute(self, _statement: object) -> _FakeResult:
+    async def execute(self, statement: object, _params: object = None) -> object:
+        # Le login consomme aussi des énoncés SQL bruts (`text()`) pour enregistrer
+        # le refresh émis (denylist, tâche 9.2) : ceux-ci n'ont pas de `whereclause`
+        # ORM → résultat vide (valeur non exploitée dans ces tests de contrat HTTP).
+        if not hasattr(statement, "whereclause"):
+            return _EmptyExecuteResult()
         return _FakeResult(self._user)
 
     async def commit(self) -> None:  # pragma: no cover - mutation absorbée

@@ -568,8 +568,19 @@ export async function softDeleteVisit(
 }
 
 /**
- * Enregistre (upsert) le profil du centre + outbox. Le profil est 1:1 avec le
- * tenant : on conserve son `id` et on incrémente la version à chaque écriture.
+ * Enregistre (upsert) le profil du centre **en local uniquement**, sans entrée
+ * d'outbox. Le profil est 1:1 avec le tenant : on conserve son `id` et on
+ * incrémente la version à chaque écriture.
+ *
+ * ⚠️ Contrairement aux entités `patient`/`visit`, le profil n'est **pas**
+ * synchronisé via le protocole outbox : il possède son propre endpoint REST
+ * dédié `PATCH /api/center/profile` (cf. `api.ts` → `updateCenterProfile`), qui
+ * est la source de vérité côté serveur (ADR G-6, Option 2). N'inscrire aucune
+ * mutation `center_profile` dans l'outbox : ces entrées ne sont jamais
+ * consommées par le push de sync (le contrat figé ne connaît que
+ * `patient`/`visit`), donc les y ajouter ferait croître l'outbox sans borne à
+ * chaque édition du profil (fuite G-6). L'outbox reste ainsi borné malgré des
+ * éditions répétées du profil.
  */
 export async function upsertCenterProfile(
   input: Omit<CenterProfileDoc, "updated_at" | "version" | "deleted_at"> & {
@@ -577,6 +588,8 @@ export async function upsertCenterProfile(
   },
 ): Promise<RxDocument<CenterProfileDoc>> {
   const db = await getDb();
+  // `existing` sert au bump de version (LWW local) ; aucune entrée d'outbox
+  // n'est émise (synchro du profil assurée par REST, voir docstring).
   const existing = await db.center_profile.findOne(input.id).exec();
   const ts = nowIso();
   const next: CenterProfileDoc = {
@@ -586,13 +599,6 @@ export async function upsertCenterProfile(
     version: existing ? existing.version + 1 : (input.version ?? 1),
   };
   const saved = await db.center_profile.upsert(next);
-  await enqueueOutbox(
-    db,
-    existing ? "update" : "insert",
-    "center_profile",
-    next.id,
-    next,
-  );
   return saved;
 }
 

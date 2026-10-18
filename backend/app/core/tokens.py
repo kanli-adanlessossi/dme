@@ -53,12 +53,18 @@ class TokenClaims:
 
     `tenant_id` est NUL pour un `platform_admin` (opérations transversales) ;
     toute couche cadrée au tenant doit traiter ce cas explicitement (tâche 7.5).
+
+    `jti` / `family_id` ne sont portés que par les **refresh tokens** émis après
+    la tâche 9.2 (rotation + denylist, G-9) ; ils valent `None` pour un access
+    token et pour un refresh « hérité » émis avant cette tâche.
     """
 
     sub: uuid.UUID
     tenant_id: uuid.UUID | None
     role: str
     token_type: str
+    jti: uuid.UUID | None = None
+    family_id: uuid.UUID | None = None
 
 
 def _encode(
@@ -68,8 +74,14 @@ def _encode(
     role: str,
     token_type: str,
     ttl_seconds: int,
+    jti: uuid.UUID | None = None,
+    family_id: uuid.UUID | None = None,
 ) -> str:
-    """Encode un JWT signé portant `sub`, `tenant_id`, `role`, `type` et `exp`."""
+    """Encode un JWT signé portant `sub`, `tenant_id`, `role`, `type` et `exp`.
+
+    `jti` / `family_id` ne sont ajoutés au payload que lorsqu'ils sont fournis
+    (refresh tokens, tâche 9.2) ; un access token n'en porte pas.
+    """
     settings = get_settings()
     now = datetime.now(UTC)
     payload = {
@@ -81,6 +93,11 @@ def _encode(
         "iat": int(now.timestamp()),
         "exp": int((now + timedelta(seconds=ttl_seconds)).timestamp()),
     }
+    # Famille `jti` de rotation (refresh uniquement). Absents du payload d'un access.
+    if jti is not None:
+        payload["jti"] = str(jti)
+    if family_id is not None:
+        payload["family_id"] = str(family_id)
     return jwt.encode(payload, settings.jwt_secret, algorithm=settings.jwt_algorithm)
 
 
@@ -102,12 +119,20 @@ def create_access_token(
 
 
 def create_refresh_token(
-    *, sub: uuid.UUID, tenant_id: uuid.UUID | None, role: str
+    *,
+    sub: uuid.UUID,
+    tenant_id: uuid.UUID | None,
+    role: str,
+    jti: uuid.UUID,
+    family_id: uuid.UUID,
 ) -> str:
-    """Émet un **refresh token** (rotatif) portant `tenant_id` et `role`.
+    """Émet un **refresh token** (rotatif) portant `tenant_id`, `role`, `jti`, `family_id`.
 
     Un refresh valide permet d'émettre une nouvelle paire access + refresh
-    (rotation) à la reconnexion (opportuniste, NFR-7).
+    (rotation) à la reconnexion (opportuniste, NFR-7). Depuis la tâche 9.2 (G-9),
+    il porte toujours un `jti` (identifiant unique, clé de denylist) et un
+    `family_id` (famille de rotation) : l'appelant les fournit pour contrôler la
+    continuité de famille (un refresh rotatif conserve le `family_id` d'origine).
     """
     return _encode(
         sub=sub,
@@ -115,6 +140,8 @@ def create_refresh_token(
         role=role,
         token_type=TOKEN_TYPE_REFRESH,
         ttl_seconds=get_settings().jwt_refresh_ttl_seconds,
+        jti=jti,
+        family_id=family_id,
     )
 
 
@@ -163,9 +190,26 @@ def decode_token(token: str, *, expected_type: str) -> TokenClaims:
         except ValueError as exc:
             raise TokenError from exc
 
+    # Famille `jti` de rotation (refresh émis depuis la tâche 9.2). Absents d'un
+    # access et d'un refresh hérité (→ None) ; un uuid mal formé est une anomalie.
+    jti = _optional_uuid(payload.get("jti"))
+    family_id = _optional_uuid(payload.get("family_id"))
+
     return TokenClaims(
         sub=sub,
         tenant_id=tenant_id,
         role=role,
         token_type=expected_type,
+        jti=jti,
+        family_id=family_id,
     )
+
+
+def _optional_uuid(raw: object) -> uuid.UUID | None:
+    """Convertit un claim UUID optionnel : `None` si absent, `TokenError` si mal formé."""
+    if raw is None:
+        return None
+    try:
+        return uuid.UUID(str(raw))
+    except ValueError as exc:
+        raise TokenError from exc

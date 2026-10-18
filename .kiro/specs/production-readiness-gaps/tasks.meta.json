@@ -1,0 +1,325 @@
+{
+  "pbtResults": {},
+  "executionHistory": {
+    "1. [G-1] Garde-fou de configuration de production (fail-fast)": [
+      {
+        "executionId": "6b4694fb-0618-4bac-b72c-642c631ed23b",
+        "chatSessionId": "sess_ae244a7e-32aa-4625-92d7-d5041a80b046",
+        "timestamp": 1792309188625
+      },
+      {
+        "executionId": "6b4694fb-0618-4bac-b72c-642c631ed23b",
+        "chatSessionId": "sess_ae244a7e-32aa-4625-92d7-d5041a80b046",
+        "timestamp": 1792309388077
+      }
+    ],
+    "1.1 Ajouter `_DEV_JWT_SECRET`, `UnsafeProductionConfigError` et": [
+      {
+        "executionId": "41d3b135-db99-443c-b73c-14b0f19d6641",
+        "chatSessionId": "sess_f7918123-a982-4765-ae4f-755ceecf5c00",
+        "timestamp": 1792309411080
+      },
+      {
+        "executionId": "41d3b135-db99-443c-b73c-14b0f19d6641",
+        "chatSessionId": "sess_f7918123-a982-4765-ae4f-755ceecf5c00",
+        "timestamp": 1792309540710
+      }
+    ],
+    "1.2 Invoquer la validation dans un gestionnaire `lifespan` de `app/main.py`": [
+      {
+        "executionId": "99e42793-68a5-436e-b2b0-57ab560a591c",
+        "chatSessionId": "sess_f7918123-a982-4765-ae4f-755ceecf5c00",
+        "timestamp": 1792309624303
+      },
+      {
+        "executionId": "99e42793-68a5-436e-b2b0-57ab560a591c",
+        "chatSessionId": "sess_f7918123-a982-4765-ae4f-755ceecf5c00",
+        "timestamp": 1792309708505
+      }
+    ],
+    "1.3 Tests : 5 cas (secret défaut, debug, APP_DB manquant, config saine,": [
+      {
+        "executionId": "99e42793-68a5-436e-b2b0-57ab560a591c",
+        "chatSessionId": "sess_f7918123-a982-4765-ae4f-755ceecf5c00",
+        "timestamp": 1792309715513
+      },
+      {
+        "executionId": "99e42793-68a5-436e-b2b0-57ab560a591c",
+        "chatSessionId": "sess_f7918123-a982-4765-ae4f-755ceecf5c00",
+        "timestamp": 1792309799222
+      }
+    ],
+    "2.1 Middleware d'en-têtes dans `app/main.py` : `nosniff`,": [
+      {
+        "executionId": "99950fd6-86dd-4c1e-85ab-d26fa6fd54e5",
+        "chatSessionId": "sess_f7918123-a982-4765-ae4f-755ceecf5c00",
+        "timestamp": 1792309885001
+      },
+      {
+        "executionId": "99950fd6-86dd-4c1e-85ab-d26fa6fd54e5",
+        "chatSessionId": "sess_f7918123-a982-4765-ae4f-755ceecf5c00",
+        "timestamp": 1792309989587
+      }
+    ],
+    "2.2 Test vérifiant la présence des en-têtes sur une réponse (`/health`). DoD :": [
+      {
+        "executionId": "99950fd6-86dd-4c1e-85ab-d26fa6fd54e5",
+        "chatSessionId": "sess_f7918123-a982-4765-ae4f-755ceecf5c00",
+        "timestamp": 1792309993269
+      },
+      {
+        "executionId": "99950fd6-86dd-4c1e-85ab-d26fa6fd54e5",
+        "chatSessionId": "sess_f7918123-a982-4765-ae4f-755ceecf5c00",
+        "timestamp": 1792310074742
+      }
+    ],
+    "2. [G-2] En-têtes de sécurité côté API": [
+      {
+        "executionId": "99950fd6-86dd-4c1e-85ab-d26fa6fd54e5",
+        "chatSessionId": "sess_f7918123-a982-4765-ae4f-755ceecf5c00",
+        "timestamp": 1792310074834
+      }
+    ],
+    "3.1 Convertir `frontend/Dockerfile` en multi-stage (build `vite build` → run": [
+      {
+        "executionId": "92053b79-eb1a-404c-af9f-925f1749a673",
+        "chatSessionId": "sess_f7918123-a982-4765-ae4f-755ceecf5c00",
+        "timestamp": 1792310156069
+      },
+      {
+        "executionId": "92053b79-eb1a-404c-af9f-925f1749a673",
+        "chatSessionId": "sess_f7918123-a982-4765-ae4f-755ceecf5c00",
+        "timestamp": 1792310349155
+      }
+    ],
+    "3.2 Config Nginx : fallback SPA ; CSP applicative concrète (voir design,": [
+      {
+        "executionId": "92053b79-eb1a-404c-af9f-925f1749a673",
+        "chatSessionId": "sess_f7918123-a982-4765-ae4f-755ceecf5c00",
+        "timestamp": 1792310353545
+      },
+      {
+        "executionId": "92053b79-eb1a-404c-af9f-925f1749a673",
+        "chatSessionId": "sess_f7918123-a982-4765-ae4f-755ceecf5c00",
+        "timestamp": 1792310599057
+      }
+    ],
+    "3.3 Vérifier : `vite build` passe ; rechargement et fonctionnement hors ligne": [
+      {
+        "executionId": "92053b79-eb1a-404c-af9f-925f1749a673",
+        "chatSessionId": "sess_f7918123-a982-4765-ae4f-755ceecf5c00",
+        "timestamp": 1792310603137
+      },
+      {
+        "executionId": "92053b79-eb1a-404c-af9f-925f1749a673",
+        "chatSessionId": "sess_f7918123-a982-4765-ae4f-755ceecf5c00",
+        "timestamp": 1792311178569
+      }
+    ],
+    "3.4 Conserver la cible de dev (`npm run dev`) pour la pile locale. DoD : image": [
+      {
+        "executionId": "92053b79-eb1a-404c-af9f-925f1749a673",
+        "chatSessionId": "sess_f7918123-a982-4765-ae4f-755ceecf5c00",
+        "timestamp": 1792311183000
+      },
+      {
+        "executionId": "92053b79-eb1a-404c-af9f-925f1749a673",
+        "chatSessionId": "sess_f7918123-a982-4765-ae4f-755ceecf5c00",
+        "timestamp": 1792311530270
+      }
+    ],
+    "3. [G-3] Image Docker frontend de production + CSP applicative": [
+      {
+        "executionId": "92053b79-eb1a-404c-af9f-925f1749a673",
+        "chatSessionId": "sess_f7918123-a982-4765-ae4f-755ceecf5c00",
+        "timestamp": 1792311530351
+      }
+    ],
+    "4.1 Limitation de débit sur `/api/public/*` au reverse proxy (Nginx": [
+      {
+        "executionId": "9f4b63d9-59fa-462b-b5c9-713933c67c4c",
+        "chatSessionId": "sess_f7918123-a982-4765-ae4f-755ceecf5c00",
+        "timestamp": 1792311594845
+      },
+      {
+        "executionId": "9f4b63d9-59fa-462b-b5c9-713933c67c4c",
+        "chatSessionId": "sess_f7918123-a982-4765-ae4f-755ceecf5c00",
+        "timestamp": 1792312156136
+      }
+    ],
+    "4.2 `Cache-Control: public, max-age=300` sur `/api/public/regions` et": [
+      {
+        "executionId": "9f4b63d9-59fa-462b-b5c9-713933c67c4c",
+        "chatSessionId": "sess_f7918123-a982-4765-ae4f-755ceecf5c00",
+        "timestamp": 1792312159746
+      },
+      {
+        "executionId": "9f4b63d9-59fa-462b-b5c9-713933c67c4c",
+        "chatSessionId": "sess_f7918123-a982-4765-ae4f-755ceecf5c00",
+        "timestamp": 1792312320749
+      }
+    ],
+    "4.3 Vérifier que la projection sûre et la règle « actifs seulement » restent": [
+      {
+        "executionId": "9f4b63d9-59fa-462b-b5c9-713933c67c4c",
+        "chatSessionId": "sess_f7918123-a982-4765-ae4f-755ceecf5c00",
+        "timestamp": 1792312324379
+      },
+      {
+        "executionId": "9f4b63d9-59fa-462b-b5c9-713933c67c4c",
+        "chatSessionId": "sess_f7918123-a982-4765-ae4f-755ceecf5c00",
+        "timestamp": 1792312533849
+      }
+    ],
+    "4. [G-4] Limitation de débit + cache des endpoints publics": [
+      {
+        "executionId": "9f4b63d9-59fa-462b-b5c9-713933c67c4c",
+        "chatSessionId": "sess_f7918123-a982-4765-ae4f-755ceecf5c00",
+        "timestamp": 1792312533933
+      }
+    ],
+    "5.1 Remplacer `allow_methods=[\"*\"]` / `allow_headers=[\"*\"]` par des listes": [
+      {
+        "executionId": "48161ca5-d6b5-4ea0-b159-5838f9f2ed8b",
+        "chatSessionId": "sess_f7918123-a982-4765-ae4f-755ceecf5c00",
+        "timestamp": 1792312592621
+      },
+      {
+        "executionId": "48161ca5-d6b5-4ea0-b159-5838f9f2ed8b",
+        "chatSessionId": "sess_f7918123-a982-4765-ae4f-755ceecf5c00",
+        "timestamp": 1792312687272
+      }
+    ],
+    "5.2 Vérifier que le frontend (Bearer + JSON) fonctionne toujours. DoD : pré-vol": [
+      {
+        "executionId": "48161ca5-d6b5-4ea0-b159-5838f9f2ed8b",
+        "chatSessionId": "sess_f7918123-a982-4765-ae4f-755ceecf5c00",
+        "timestamp": 1792312690913
+      },
+      {
+        "executionId": "48161ca5-d6b5-4ea0-b159-5838f9f2ed8b",
+        "chatSessionId": "sess_f7918123-a982-4765-ae4f-755ceecf5c00",
+        "timestamp": 1792312815194
+      }
+    ],
+    "5. [G-5] Restriction CORS en production": [
+      {
+        "executionId": "48161ca5-d6b5-4ea0-b159-5838f9f2ed8b",
+        "chatSessionId": "sess_f7918123-a982-4765-ae4f-755ceecf5c00",
+        "timestamp": 1792312815275
+      }
+    ],
+    "6.1 Dans `frontend/src/lib/db.ts`, faire que `upsertCenterProfile`": [
+      {
+        "executionId": "779ef478-7b19-45c8-9f37-5dbd1a8a810d",
+        "chatSessionId": "sess_f7918123-a982-4765-ae4f-755ceecf5c00",
+        "timestamp": 1792312871963
+      },
+      {
+        "executionId": "779ef478-7b19-45c8-9f37-5dbd1a8a810d",
+        "chatSessionId": "sess_f7918123-a982-4765-ae4f-755ceecf5c00",
+        "timestamp": 1792313019417
+      }
+    ],
+    "6.2 Test : sous éditions répétées du profil, l'outbox ne croît pas.": [
+      {
+        "executionId": "779ef478-7b19-45c8-9f37-5dbd1a8a810d",
+        "chatSessionId": "sess_f7918123-a982-4765-ae4f-755ceecf5c00",
+        "timestamp": 1792313023038
+      },
+      {
+        "executionId": "779ef478-7b19-45c8-9f37-5dbd1a8a810d",
+        "chatSessionId": "sess_f7918123-a982-4765-ae4f-755ceecf5c00",
+        "timestamp": 1792313185386
+      }
+    ],
+    "6. [G-6] Fin de la fuite d'outbox `center_profile`": [
+      {
+        "executionId": "779ef478-7b19-45c8-9f37-5dbd1a8a810d",
+        "chatSessionId": "sess_f7918123-a982-4765-ae4f-755ceecf5c00",
+        "timestamp": 1792313185465
+      }
+    ],
+    "7.1 Job CI avec service `postgis/postgis:16-3.4`, migrations": [
+      {
+        "executionId": "240e9661-a38f-4aa4-940a-2ae420635347",
+        "chatSessionId": "sess_f7918123-a982-4765-ae4f-755ceecf5c00",
+        "timestamp": 1792313247450
+      },
+      {
+        "executionId": "240e9661-a38f-4aa4-940a-2ae420635347",
+        "chatSessionId": "sess_f7918123-a982-4765-ae4f-755ceecf5c00",
+        "timestamp": 1792313580878
+      }
+    ],
+    "7.2 Confirmer que les 54 tests d'intégration DB ne sont plus ignorés et": [
+      {
+        "executionId": "240e9661-a38f-4aa4-940a-2ae420635347",
+        "chatSessionId": "sess_f7918123-a982-4765-ae4f-755ceecf5c00",
+        "timestamp": 1792313584784
+      },
+      {
+        "executionId": "240e9661-a38f-4aa4-940a-2ae420635347",
+        "chatSessionId": "sess_f7918123-a982-4765-ae4f-755ceecf5c00",
+        "timestamp": 1792313805930
+      }
+    ],
+    "7. [G-7] CI avec Postgres/PostGIS (couverture RLS réelle)": [
+      {
+        "executionId": "240e9661-a38f-4aa4-940a-2ae420635347",
+        "chatSessionId": "sess_f7918123-a982-4765-ae4f-755ceecf5c00",
+        "timestamp": 1792313806020
+      }
+    ],
+    "8.1 Monter FastAPI/Starlette/httpx ; remplacer": [
+      {
+        "executionId": "b1410ba1-2a53-4f5c-96a3-1f0e90e42538",
+        "chatSessionId": "sess_f7918123-a982-4765-ae4f-755ceecf5c00",
+        "timestamp": 1792313934271
+      },
+      {
+        "executionId": "b1410ba1-2a53-4f5c-96a3-1f0e90e42538",
+        "chatSessionId": "sess_f7918123-a982-4765-ae4f-755ceecf5c00",
+        "timestamp": 1792314432927
+      }
+    ],
+    "8. [G-8] Résorption des dépréciations": [
+      {
+        "executionId": "b1410ba1-2a53-4f5c-96a3-1f0e90e42538",
+        "chatSessionId": "sess_f7918123-a982-4765-ae4f-755ceecf5c00",
+        "timestamp": 1792314432978
+      }
+    ],
+    "9.1 Appliquer immédiatement (configuration, sans modèle) :": [
+      {
+        "executionId": "87124326-0f79-41d0-abd3-909d3300f462",
+        "chatSessionId": "sess_f7918123-a982-4765-ae4f-755ceecf5c00",
+        "timestamp": 1792314493605
+      },
+      {
+        "executionId": "87124326-0f79-41d0-abd3-909d3300f462",
+        "chatSessionId": "sess_f7918123-a982-4765-ae4f-755ceecf5c00",
+        "timestamp": 1792314618259
+      }
+    ],
+    "9.2 **(Hors lot courant — phase 2 ; introduit un modèle de données, donc non": [
+      {
+        "executionId": "7ab15458-64de-4b31-805e-162720b9b29e",
+        "chatSessionId": "sess_f7918123-a982-4765-ae4f-755ceecf5c00",
+        "timestamp": 1792314987258
+      },
+      {
+        "executionId": "7ab15458-64de-4b31-805e-162720b9b29e",
+        "chatSessionId": "sess_f7918123-a982-4765-ae4f-755ceecf5c00",
+        "timestamp": 1792317494763
+      }
+    ],
+    "9. [G-9] Durcissement JWT (TTL + denylist de refresh)": [
+      {
+        "executionId": "7ab15458-64de-4b31-805e-162720b9b29e",
+        "chatSessionId": "sess_f7918123-a982-4765-ae4f-755ceecf5c00",
+        "timestamp": 1792317494816
+      }
+    ]
+  }
+}

@@ -15,13 +15,22 @@ dependencies = [
     "alembic>=1.13",
     "argon2-cffi>=23.1",
     "pyjwt>=2.8",
+    # Repli applicatif de limitation de débit des endpoints publics (G-4, tâche 4.1).
+    # Version épinglée : la conception place la limitation au reverse proxy, SlowAPI
+    # n'en est que le repli « si aucun proxy » (rend le 429 reproductible/testable).
+    "slowapi==0.1.10",
 ]
 
 [project.optional-dependencies]
 dev = [
     "pytest>=8.2",
     "pytest-asyncio>=0.23",
-    "httpx>=0.27",
+    # Client HTTP du `TestClient` de Starlette. Starlette ≥ 1.7 privilégie
+    # `httpx2` (successeur maintenu par l'organisation pydantic) et déprécie
+    # l'emploi de l'ancien `httpx` ; on adopte donc `httpx2` pour une sortie de
+    # test sans avertissement de dépréciation (G-8 / NFR-13). Le `TestClient` et
+    # le client asynchrone direct de `test_health.py` l'utilisent.
+    "httpx2>=2.13",
     "ruff>=0.5",
 ]
 
@@ -45,3 +54,17 @@ extend-immutable-calls = ["fastapi.Depends", "fastapi.Query", "fastapi.Path", "f
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["app/tests"]
+# Garde-fou anti-régression des dépréciations (G-8 / NFR-13). La suite doit
+# rester SANS avertissement de dépréciation : on les transforme donc en erreurs
+# pour qu'une future dépréciation (dépendance montée de version, API retirée)
+# fasse échouer la CI au lieu de passer inaperçue. On couvre à la fois les
+# `DeprecationWarning`/`PendingDeprecationWarning` standards ET le
+# `StarletteDeprecationWarning` de Starlette — qui hérite de `UserWarning`, pas
+# de `DeprecationWarning`, et échapperait sinon au filtre. Aucun motif d'ignore
+# n'est nécessaire : toutes les dépréciations observées (HTTP_422, testclient
+# `httpx`→`httpx2`, clé HMAC courte) sont corrigées à la source.
+filterwarnings = [
+    "error::DeprecationWarning",
+    "error::PendingDeprecationWarning",
+    "error::starlette.exceptions.StarletteDeprecationWarning",
+]

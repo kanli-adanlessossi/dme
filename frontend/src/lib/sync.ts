@@ -29,11 +29,12 @@
 // `patient`/`visit` et les opérations `upsert`/`delete`. L'outbox local porte
 // `operation` ∈ insert|update|delete et une collection `center_profile`.
 //  - operation `insert`/`update` → op `upsert` ; `delete` → op `delete`.
-//  - `center_profile` N'EST PAS dans le contrat de sync (il a son propre endpoint
-//    REST `GET/PATCH /api/center/profile`, cf. `routers/center.py`). Ces entrées
-//    sont donc **ignorées** par le push de sync et laissées dans l'outbox.
-//    TODO(14.x profil) : brancher la synchro du profil sur `/api/center/profile`
-//    (hors périmètre 14.4 ; ne pas inventer de contrat conflictuel).
+//  - `center_profile` N'EST PAS dans le contrat de sync : il possède son propre
+//    endpoint REST dédié `GET/PATCH /api/center/profile` (cf. `routers/center.py`
+//    côté serveur, `api.ts` → `fetchCenterProfile`/`updateCenterProfile` côté
+//    client, appelés par `CenterAdmin.tsx`). Le profil n'est donc **jamais**
+//    inscrit dans l'outbox (`upsertCenterProfile` écrit en local sans l'enfiler),
+//    de sorte que l'outbox reste borné malgré des éditions répétées du profil.
 
 import { BehaviorSubject, type Observable } from "rxjs";
 
@@ -121,8 +122,9 @@ const SYNC_ENTITIES: ReadonlySet<string> = new Set<SyncEntity>([
 
 /**
  * Convertit une entrée d'outbox en `Mutation` du contrat figé, ou `null` si la
- * collection n'est pas synchronisable par ce protocole (p. ex. `center_profile`,
- * géré par son propre endpoint REST — voir le TODO en tête de fichier).
+ * collection n'est pas synchronisable par ce protocole. `center_profile` n'est
+ * jamais enfilé dans l'outbox (il est synchronisé via son propre endpoint REST,
+ * voir l'en-tête de fichier) ; ce garde `null` reste néanmoins défensif.
  */
 function toMutation(entry: OutboxDoc): Mutation | null {
   if (!SYNC_ENTITIES.has(entry.collection_name)) return null;
@@ -331,12 +333,12 @@ export class SyncEngine {
     const entries = await listOutbox();
     if (entries.length === 0) return;
 
-    // Mapping + mise de côté des entrées non synchronisables (center_profile).
+    // Mapping + mise de côté des entrées non synchronisables par ce protocole.
     const mutations: Mutation[] = [];
     const byMutationId = new Map<string, OutboxDoc>();
     for (const entry of entries) {
       const mutation = toMutation(entry);
-      if (!mutation) continue; // center_profile : géré ailleurs (TODO en tête).
+      if (!mutation) continue; // non synchronisable (garde défensif) : on ignore.
       mutations.push(mutation);
       byMutationId.set(mutation.mutation_id, entry);
     }

@@ -41,15 +41,39 @@ def test_access_token_porte_sub_tenant_role() -> None:
     assert claims.token_type == TOKEN_TYPE_ACCESS
 
 
-def test_refresh_token_porte_sub_tenant_role() -> None:
-    """Un refresh vérifié restitue `sub`, `tenant_id` et `role`."""
+def test_refresh_token_porte_sub_tenant_role_jti_family() -> None:
+    """Un refresh vérifié restitue `sub`, `tenant_id`, `role`, `jti` et `family_id`.
+
+    Depuis la tâche 9.2 (G-9), un refresh porte toujours un `jti` (clé de denylist)
+    et un `family_id` (famille de rotation), préservés en round-trip.
+    """
     sub = uuid.uuid4()
     tenant_id = uuid.uuid4()
-    token = create_refresh_token(sub=sub, tenant_id=tenant_id, role="tenant_admin")
+    jti = uuid.uuid4()
+    family_id = uuid.uuid4()
+    token = create_refresh_token(
+        sub=sub,
+        tenant_id=tenant_id,
+        role="tenant_admin",
+        jti=jti,
+        family_id=family_id,
+    )
     claims = decode_token(token, expected_type=TOKEN_TYPE_REFRESH)
     assert claims.sub == sub
     assert claims.tenant_id == tenant_id
     assert claims.role == "tenant_admin"
+    assert claims.jti == jti
+    assert claims.family_id == family_id
+
+
+def test_access_token_sans_jti_ni_family() -> None:
+    """Un access token ne porte ni `jti` ni `family_id` (→ None au décodage)."""
+    token = create_access_token(
+        sub=uuid.uuid4(), tenant_id=uuid.uuid4(), role="clinician"
+    )
+    claims = decode_token(token, expected_type=TOKEN_TYPE_ACCESS)
+    assert claims.jti is None
+    assert claims.family_id is None
 
 
 def test_tenant_id_null_preserve_pour_platform_admin() -> None:
@@ -63,7 +87,13 @@ def test_tenant_id_null_preserve_pour_platform_admin() -> None:
 
 def test_refresh_rejete_quand_type_access_attendu() -> None:
     """Un refresh présenté comme access est rejeté (séparation des types)."""
-    token = create_refresh_token(sub=uuid.uuid4(), tenant_id=uuid.uuid4(), role="staff")
+    token = create_refresh_token(
+        sub=uuid.uuid4(),
+        tenant_id=uuid.uuid4(),
+        role="staff",
+        jti=uuid.uuid4(),
+        family_id=uuid.uuid4(),
+    )
     with pytest.raises(TokenError):
         decode_token(token, expected_type=TOKEN_TYPE_ACCESS)
 
@@ -86,7 +116,12 @@ def test_signature_invalide_leve_token_error() -> None:
             "type": TOKEN_TYPE_ACCESS,
             "exp": int((datetime.now(UTC) + timedelta(hours=1)).timestamp()),
         },
-        "mauvais-secret",
+        # Secret volontairement DIFFÉRENT de celui de l'application (la signature
+        # doit donc être rejetée), mais long d'au moins 32 octets pour satisfaire
+        # la longueur minimale HS256 recommandée (RFC 7518 §3.2) : un secret trop
+        # court ne changerait pas le comportement testé mais émettrait un
+        # avertissement de dépréciation parasite (NFR-13).
+        "mauvais-secret-mais-suffisamment-long-0123456789",
         algorithm=get_settings().jwt_algorithm,
     )
     with pytest.raises(TokenError):

@@ -137,12 +137,12 @@ async def create_tenant(
         )
     except CoordinatesOutsideTogoError:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="Les coordonnées doivent se situer à l'intérieur du Togo.",
         ) from None
     except RegionNotFoundError:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="Code de région inconnu.",
         ) from None
     except EmailAlreadyExistsError:

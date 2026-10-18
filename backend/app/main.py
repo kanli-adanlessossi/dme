@@ -14,12 +14,18 @@ arrivent dans les tâches 4 et 5.
 
 from __future__ import annotations
 
-from fastapi import FastAPI
+from collections.abc import AsyncIterator, Awaitable, Callable
+from contextlib import asynccontextmanager
+
+from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
 
 from app.core.config import get_settings
 from app.core.db import check_database_ready
 from app.core.deps import get_current_tenant_id as auth_get_current_tenant_id
+from app.core.rate_limit import limiter
 from app.core.tenant_context import get_current_tenant_id as tenant_context_joint
 from app.routers import (
     admin,
@@ -33,6 +39,23 @@ from app.routers import (
 
 settings = get_settings()
 
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
+    """Cycle de vie de l'application : garde-fou de démarrage fail-closed (G-1).
+
+    Au démarrage, on refuse un déploiement non sûr AVANT d'accepter la moindre
+    requête : `validate_production_safety()` lève `UnsafeProductionConfigError`
+    (en nommant le réglage fautif) si, en production, le secret JWT est resté le
+    défaut de dev, `debug` est actif, ou le rôle applicatif `APP_DB_*` est absent
+    (NFR-1, NFR-2). Hors production (dev, tests), c'est un no-op : la collecte des
+    tests qui importe `app.main` avec des valeurs de dev n'est pas cassée — c'est
+    pourquoi la conception préfère le `lifespan` à un validateur d'import.
+    """
+    settings.validate_production_safety()
+    yield
+
+
 app = FastAPI(
     title=settings.app_name,
     description=(
@@ -40,7 +63,27 @@ app = FastAPI(
         "Contrat d'API et protocole de synchronisation figés (tâche 3)."
     ),
     version="0.1.0",
+    lifespan=lifespan,
 )
+
+# Limitation de débit des endpoints publics — REPLI applicatif (G-4, exigence 4.1).
+# La conception place la limitation au reverse proxy (Nginx `limit_req` sur
+# `/api/public/*`, 60 req/min/IP → 429 ; artefact sous `deploy/reverse-proxy/`). Ce
+# repli SlowAPI rend le 429 reproductible et testable quand aucun proxy n'est en
+# façade (dev, tests, déploiement mono-instance), conformément au repli documenté.
+#
+# Portée STRICTEMENT limitée à `/api/public/*` : le limiteur est posé par décorateur
+# (`@limiter.limit(public_rate_limit())`) sur les seules routes publiques (voir
+# `app/routers/public.py`). Aucun `default_limits` n'est configuré et aucun middleware
+# global n'est ajouté, de sorte que les routes authentifiées (`auth`, `sync`,
+# `center`, `patients`, `visits`, `admin`) et `/health` ne sont JAMAIS limitées.
+# Le seuil est configurable via `PUBLIC_RATE_LIMIT` (défaut « 60/minute »).
+#
+# `app.state.limiter` est requis par SlowAPI ; le handler convertit un dépassement
+# (`RateLimitExceeded`) en réponse 429 au corps minimal (aucune fuite d'information,
+# design Error Handling G-4).
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # CORS : autorise le frontend local-first (Vite, http://localhost:5173) à appeler
 # l'API depuis le navigateur. Sans ces en-têtes, les requêtes cross-origin — dont
@@ -48,13 +91,61 @@ app = FastAPI(
 # navigateur. Les origines sont explicites (jamais `*`) et configurables via
 # `CORS_ALLOW_ORIGINS`. `allow_credentials=True` autorise l'envoi du jeton Bearer
 # et des en-têtes d'auth sur les routes protégées.
+#
+# Méthodes et en-têtes sont désormais EXPLICITES (jamais `*`), eux aussi pilotés
+# par la configuration (`CORS_ALLOW_METHODS` / `CORS_ALLOW_HEADERS`, G-5 / NFR-2) :
+# le pré-vol n'annonce que GET/POST/PATCH/DELETE/OPTIONS et les en-têtes
+# `Authorization` / `Content-Type` dont le frontend a besoin. Un joker est refusé
+# par conception — et, combiné à `allow_credentials=True`, serait de toute façon
+# invalide au sens de la spéc CORS. Un pré-vol non autorisé échoue côté navigateur
+# comme auparavant, sans code d'erreur serveur supplémentaire.
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_allow_origins,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=settings.cors_allow_methods,
+    allow_headers=settings.cors_allow_headers,
 )
+
+# En-têtes de sécurité côté API (G-2). Middleware maison léger (conception : on
+# refuse une dépendance tierce pour une poignée d'en-têtes statiques, cf. design).
+# Il n'ajoute/n'altère QUE des en-têtes : il ne touche jamais au corps ni au statut
+# de la réponse, et ne peut donc pas transformer une réponse valide en erreur.
+#
+# - `X-Content-Type-Options: nosniff` : empêche le MIME-sniffing du navigateur.
+# - `X-Frame-Options: DENY` : interdit l'inclusion en cadre (anti-clickjacking).
+# - `Content-Security-Policy: default-src 'none'; frame-ancestors 'none'` : CSP
+#   verrouillée adaptée à une API JSON qui ne sert jamais de HTML exécutable. La CSP
+#   applicative riche (origines MapLibre, service worker…) est portée par le serveur
+#   statique frontend (G-3), pas ici.
+#
+# L'API ne pose PAS `Strict-Transport-Security` (HSTS) : cet en-tête n'a de sens
+# qu'émis par le point de terminaison TLS (reverse proxy en production) ; l'émettre
+# depuis l'API serait inopérant ou trompeur (cf. design, répartition des en-têtes).
+_API_SECURITY_HEADERS = {
+    "X-Content-Type-Options": "nosniff",
+    "X-Frame-Options": "DENY",
+    "Content-Security-Policy": "default-src 'none'; frame-ancestors 'none'",
+}
+
+
+@app.middleware("http")
+async def add_security_headers(
+    request: Request,
+    call_next: Callable[[Request], Awaitable[Response]],
+) -> Response:
+    """Pose les en-têtes de sécurité API sur chaque réponse (G-2).
+
+    Le middleware délègue d'abord au reste de la pile (`call_next`) pour obtenir la
+    réponse telle quelle — corps et statut inchangés — puis se contente d'y ajouter
+    les en-têtes statiques. Aucune transformation du corps ni du statut : il ne peut
+    donc pas convertir une réponse valide en erreur (NFR-2).
+    """
+    response = await call_next(request)
+    for header, value in _API_SECURITY_HEADERS.items():
+        response.headers[header] = value
+    return response
+
 
 # Routeurs métier (contrat figé en tâche 3). L'ordre d'inclusion n'affecte pas
 # le routage mais structure l'ordre des sections dans Swagger UI.

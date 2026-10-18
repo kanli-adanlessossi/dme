@@ -7,7 +7,7 @@ de base : la liveness répond 200 et le champ `database` reflète la disponibili
 
 from __future__ import annotations
 
-import httpx
+import httpx2
 from fastapi.testclient import TestClient
 
 from app.core.config import Settings, get_settings
@@ -34,9 +34,9 @@ def test_health_rapporte_etat_base() -> None:
 
 
 async def test_health_async_renvoie_200() -> None:
-    """GET /health via un client httpx asynchrone répond 200 (pytest-asyncio)."""
-    transport = httpx.ASGITransport(app=app)
-    async with httpx.AsyncClient(transport=transport, base_url="http://test") as ac:
+    """GET /health via un client httpx2 asynchrone répond 200 (pytest-asyncio)."""
+    transport = httpx2.ASGITransport(app=app)
+    async with httpx2.AsyncClient(transport=transport, base_url="http://test") as ac:
         response = await ac.get("/health")
     assert response.status_code == 200
     assert response.json()["status"] == "ok"
