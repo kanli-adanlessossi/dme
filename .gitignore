@@ -17,6 +17,14 @@ node_modules/
 dist/
 .vite/
 
+# Lighthouse CI (rapports générés, publiés en artefact CI — pas versionnés)
+.lighthouseci/
+
+# Playwright (artefacts de run E2E — pas versionnés)
+test-results/
+playwright-report/
+playwright/.cache/
+
 # Divers
 .DS_Store
 *.log

@@ -1,0 +1,242 @@
+{
+  "pbtResults": {},
+  "executionHistory": {
+    "2. [#5] Commande `test-db` (Windows)": [
+      {
+        "executionId": "4425960c-00c2-4623-abbd-cc060f9bab6a",
+        "chatSessionId": "sess_2558bb22-95df-432d-b69c-91abbad49376",
+        "timestamp": 1792589684097
+      },
+      {
+        "executionId": "4425960c-00c2-4623-abbd-cc060f9bab6a",
+        "chatSessionId": "sess_2558bb22-95df-432d-b69c-91abbad49376",
+        "timestamp": 1792589931835
+      }
+    ],
+    "2.1 Ajouter la branche `test-db` au dispatch `goto` de `dme.bat`, comportement": [
+      {
+        "executionId": "449d7ba3-acc8-4c8e-994d-ec6ed51d7215",
+        "chatSessionId": "sess_8c31094a-81ae-458d-92da-e41de5588ed8",
+        "timestamp": 1792589950253
+      },
+      {
+        "executionId": "449d7ba3-acc8-4c8e-994d-ec6ed51d7215",
+        "chatSessionId": "sess_8c31094a-81ae-458d-92da-e41de5588ed8",
+        "timestamp": 1792590094743
+      }
+    ],
+    "3. [#5] Documentation de `test-db`": [
+      {
+        "executionId": "bc62f0fb-3962-4485-a9fd-62131542f343",
+        "chatSessionId": "sess_ff98f937-57cb-4e59-a0cd-61b154f12c3b",
+        "timestamp": 1792590116588
+      },
+      {
+        "executionId": "bc62f0fb-3962-4485-a9fd-62131542f343",
+        "chatSessionId": "sess_ff98f937-57cb-4e59-a0cd-61b154f12c3b",
+        "timestamp": 1792590194665
+      }
+    ],
+    "3.1 Référencer `test-db` comme la façon recommandée de lancer l'intégration en": [
+      {
+        "executionId": "9dc24bac-2691-491b-8601-0115b8aace6d",
+        "chatSessionId": "sess_f4ffd17c-5198-45f2-89e0-71f4e8c645ab",
+        "timestamp": 1792590369918
+      },
+      {
+        "executionId": "9dc24bac-2691-491b-8601-0115b8aace6d",
+        "chatSessionId": "sess_f4ffd17c-5198-45f2-89e0-71f4e8c645ab",
+        "timestamp": 1792590428448
+      }
+    ],
+    "4. [#13] Job CI frontend + exécution de Vitest": [
+      {
+        "executionId": "96bf9eef-9f11-40ae-a424-99f24a4d8deb",
+        "chatSessionId": "sess_0bdb6f42-4ddd-496c-8884-ef06d45e4ace",
+        "timestamp": 1792590458325
+      },
+      {
+        "executionId": "96bf9eef-9f11-40ae-a424-99f24a4d8deb",
+        "chatSessionId": "sess_0bdb6f42-4ddd-496c-8884-ef06d45e4ace",
+        "timestamp": 1792590681342
+      }
+    ],
+    "4.1 Ajouter un job `frontend` à `.github/workflows/ci.yml`, **parallèle** au": [
+      {
+        "executionId": "eacccd62-9698-4878-bbb3-60dbdead2d0a",
+        "chatSessionId": "sess_efaa32b7-d54d-437a-8ecd-37ce29390d9e",
+        "timestamp": 1792590710007
+      },
+      {
+        "executionId": "eacccd62-9698-4878-bbb3-60dbdead2d0a",
+        "chatSessionId": "sess_efaa32b7-d54d-437a-8ecd-37ce29390d9e",
+        "timestamp": 1792590798522
+      }
+    ],
+    "5. [#13] Budget de bundle bloquant (`size-limit`)": [
+      {
+        "executionId": "70950a19-cce8-4b15-98b4-faa67295574a",
+        "chatSessionId": "sess_2691c5b6-4ba1-42a1-af19-6c3faa18435f",
+        "timestamp": 1792590824348
+      },
+      {
+        "executionId": "70950a19-cce8-4b15-98b4-faa67295574a",
+        "chatSessionId": "sess_2691c5b6-4ba1-42a1-af19-6c3faa18435f",
+        "timestamp": 1792591392116
+      }
+    ],
+    "5.1 Ajouter `size-limit` (devDependency, **version épinglée**) + config": [
+      {
+        "executionId": "cf12d28c-e658-417c-a3c5-2d11e5652323",
+        "chatSessionId": "sess_74742424-e05a-4aba-bd64-98ec2cf1156f",
+        "timestamp": 1792591421113
+      },
+      {
+        "executionId": "cf12d28c-e658-417c-a3c5-2d11e5652323",
+        "chatSessionId": "sess_74742424-e05a-4aba-bd64-98ec2cf1156f",
+        "timestamp": 1792591564144
+      }
+    ],
+    "5.2 Ajouter une étape `size-limit` au job frontend, **bloquante** (échec si un": [
+      {
+        "executionId": "da054f94-c5c5-4d32-94f3-b270e1a6d586",
+        "chatSessionId": "sess_45537f4d-cd26-4c33-808f-dc7ce8402082",
+        "timestamp": 1792591588939
+      },
+      {
+        "executionId": "da054f94-c5c5-4d32-94f3-b270e1a6d586",
+        "chatSessionId": "sess_45537f4d-cd26-4c33-808f-dc7ce8402082",
+        "timestamp": 1792591690613
+      }
+    ],
+    "6. [#13] Lighthouse CI informatif": [
+      {
+        "executionId": "ec38787d-ec21-4113-9ebd-604e482b858b",
+        "chatSessionId": "sess_63958a67-8627-444c-a097-e97d670b2430",
+        "timestamp": 1792591716115
+      },
+      {
+        "executionId": "ec38787d-ec21-4113-9ebd-604e482b858b",
+        "chatSessionId": "sess_63958a67-8627-444c-a097-e97d670b2430",
+        "timestamp": 1792592166252
+      }
+    ],
+    "6.1 Ajouter Lighthouse CI (`.lighthouserc.*`) exécuté avec throttling mobile": [
+      {
+        "executionId": "b7dac719-317f-4798-beb2-7403dc141cb7",
+        "chatSessionId": "sess_8ef4e56e-e51f-44a4-964e-91087b6e7b78",
+        "timestamp": 1792592188730
+      },
+      {
+        "executionId": "b7dac719-317f-4798-beb2-7403dc141cb7",
+        "chatSessionId": "sess_8ef4e56e-e51f-44a4-964e-91087b6e7b78",
+        "timestamp": 1792592317565
+      }
+    ],
+    "7.1 Ajouter `@playwright/test` (devDependency, **version épinglée**, L1) +": [
+      {
+        "executionId": "77441bbf-e2eb-4dcb-a24b-3337fe9336fe",
+        "chatSessionId": "sess_3283cd45-aa0f-4407-afb8-1321f80830ff",
+        "timestamp": 1792592363091
+      },
+      {
+        "executionId": "77441bbf-e2eb-4dcb-a24b-3337fe9336fe",
+        "chatSessionId": "sess_3283cd45-aa0f-4407-afb8-1321f80830ff",
+        "timestamp": 1792592721089
+      }
+    ],
+    "7. [#12] Pile Playwright": [
+      {
+        "executionId": "77441bbf-e2eb-4dcb-a24b-3337fe9336fe",
+        "chatSessionId": "sess_3283cd45-aa0f-4407-afb8-1321f80830ff",
+        "timestamp": 1792592721169
+      }
+    ],
+    "8.1 Créer `frontend/e2e/sync-convergence.spec.ts` : **deux `BrowserContext`**": [
+      {
+        "executionId": "30bd8c67-56e3-43c7-a5e0-32ac43391cd9",
+        "chatSessionId": "sess_3fb5ad2c-0ae9-4194-9c9f-5ffbd29fd48d",
+        "timestamp": 1792592758522
+      },
+      {
+        "executionId": "30bd8c67-56e3-43c7-a5e0-32ac43391cd9",
+        "chatSessionId": "sess_3fb5ad2c-0ae9-4194-9c9f-5ffbd29fd48d",
+        "timestamp": 1792593146290
+      }
+    ],
+    "8.2 Scénario : travail hors ligne des deux côtés (créer/éditer patients et": [
+      {
+        "executionId": "30bd8c67-56e3-43c7-a5e0-32ac43391cd9",
+        "chatSessionId": "sess_3fb5ad2c-0ae9-4194-9c9f-5ffbd29fd48d",
+        "timestamp": 1792593150104
+      },
+      {
+        "executionId": "30bd8c67-56e3-43c7-a5e0-32ac43391cd9",
+        "chatSessionId": "sess_3fb5ad2c-0ae9-4194-9c9f-5ffbd29fd48d",
+        "timestamp": 1792603042665
+      }
+    ],
+    "8.3 Éprouver le **déterminisme** : lancer le scénario plusieurs fois ; s'il est": [
+      {
+        "executionId": "30bd8c67-56e3-43c7-a5e0-32ac43391cd9",
+        "chatSessionId": "sess_3fb5ad2c-0ae9-4194-9c9f-5ffbd29fd48d",
+        "timestamp": 1792603046528
+      },
+      {
+        "executionId": "30bd8c67-56e3-43c7-a5e0-32ac43391cd9",
+        "chatSessionId": "sess_3fb5ad2c-0ae9-4194-9c9f-5ffbd29fd48d",
+        "timestamp": 1792603613719
+      }
+    ],
+    "8.4 (Recommandé) Créer `frontend/e2e/offline-reload.spec.ts` : SW **réel": [
+      {
+        "executionId": "30bd8c67-56e3-43c7-a5e0-32ac43391cd9",
+        "chatSessionId": "sess_3fb5ad2c-0ae9-4194-9c9f-5ffbd29fd48d",
+        "timestamp": 1792603617422
+      },
+      {
+        "executionId": "30bd8c67-56e3-43c7-a5e0-32ac43391cd9",
+        "chatSessionId": "sess_3fb5ad2c-0ae9-4194-9c9f-5ffbd29fd48d",
+        "timestamp": 1792603794665
+      }
+    ],
+    "8.5 Greffer les E2E au job frontend (bloquant si stable, nightly sinon).": [
+      {
+        "executionId": "30bd8c67-56e3-43c7-a5e0-32ac43391cd9",
+        "chatSessionId": "sess_3fb5ad2c-0ae9-4194-9c9f-5ffbd29fd48d",
+        "timestamp": 1792603798361
+      },
+      {
+        "executionId": "30bd8c67-56e3-43c7-a5e0-32ac43391cd9",
+        "chatSessionId": "sess_3fb5ad2c-0ae9-4194-9c9f-5ffbd29fd48d",
+        "timestamp": 1792603930255
+      }
+    ],
+    "8. [#12] Scénario E2E de convergence multi-poste": [
+      {
+        "executionId": "30bd8c67-56e3-43c7-a5e0-32ac43391cd9",
+        "chatSessionId": "sess_3fb5ad2c-0ae9-4194-9c9f-5ffbd29fd48d",
+        "timestamp": 1792603930318
+      }
+    ],
+    "9.1 Vérifier que le job backend est inchangé et parallèle ; mesurer et": [
+      {
+        "executionId": "58063b69-0045-402a-b923-d02bea1b86a7",
+        "chatSessionId": "sess_bc49a42d-e99a-42d6-9cc7-45c33e780e05",
+        "timestamp": 1792604158222
+      },
+      {
+        "executionId": "58063b69-0045-402a-b923-d02bea1b86a7",
+        "chatSessionId": "sess_bc49a42d-e99a-42d6-9cc7-45c33e780e05",
+        "timestamp": 1792604483607
+      }
+    ],
+    "9. [#5, #12, #13] Non-régression et coût CI": [
+      {
+        "executionId": "58063b69-0045-402a-b923-d02bea1b86a7",
+        "chatSessionId": "sess_bc49a42d-e99a-42d6-9cc7-45c33e780e05",
+        "timestamp": 1792604483655
+      }
+    ]
+  }
+}
