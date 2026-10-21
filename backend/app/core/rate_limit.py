@@ -9,14 +9,18 @@ applicatif (SlowAPI) qui rend le 429 reproductible et testable dans la pile loca
 
 Portée volontairement étroite (design, Property 3 « surface publique bornée ») :
 
-- Seules les routes `/api/public/*` sont limitées. Les routes authentifiées
-  (`auth`, `sync`, `center`, `patients`, `visits`, `admin`) et `/health` ne sont
-  **jamais** limitées par ce composant : le limiteur est posé par décorateur sur les
-  seules routes publiques, pas globalement.
+- Les routes `/api/public/*` sont limitées (défaut « 60/minute ») ET les routes
+  `/api/auth/*` (`login`, `refresh`, `set-credentials`, défaut « 10/minute »). La
+  limite d'auth est une défense par IP **complémentaire** du verrouillage par compte
+  (`app/services/lockout.py`) : elle casse un balayage multi-comptes. Dans les deux
+  cas le limiteur est posé par **décorateur explicite** sur les seules routes
+  concernées (jamais globalement), avec la **même clé IP** et le **même handler 429**.
+  Les autres routes authentifiées (`sync`, `center`, `patients`, `visits`, `admin`)
+  et `/health` ne sont **jamais** limitées par ce composant.
 - Clé par **adresse IP du client** (`get_remote_address`) : un dépassement est borné
   à une source, conforme à l'exigence 4.1 (« une source dépassant le seuil »).
-- Seuil **configurable** via `Settings.public_rate_limit` (défaut « 60/minute »), sans
-  jamais coder le seuil en dur.
+- Seuils **configurables** via `Settings.public_rate_limit` (défaut « 60/minute ») et
+  `Settings.auth_rate_limit` (défaut « 10/minute »), sans jamais coder le seuil en dur.
 - Réponse **429** au dépassement, au corps minimal (handler SlowAPI par défaut) : pas
   de fuite d'information dans le corps (design, Error Handling G-4).
 
@@ -49,3 +53,14 @@ def public_rate_limit() -> str:
     sans modifier le code des routes.
     """
     return _settings.public_rate_limit
+
+
+def auth_rate_limit() -> str:
+    """Renvoie la chaîne de limite appliquée aux routes d'authentification.
+
+    Lue depuis `Settings.auth_rate_limit` (défaut « 10/minute ») à chaque appel du
+    décorateur, de sorte qu'un ajustement de configuration suffit à changer le
+    seuil sans modifier le code des routes. Défense par IP complémentaire du
+    verrouillage par compte (voir le commentaire de `Settings.auth_rate_limit`).
+    """
+    return _settings.auth_rate_limit

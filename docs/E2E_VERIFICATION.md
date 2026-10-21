@@ -32,10 +32,17 @@ Deux modes, selon la disponibilité d'une vraie base (`TEST_DATABASE_URL`) :
 
 | Mode | Commande | Résultat |
 | --- | --- | --- |
-| Unitaire (sans Postgres) | `pytest -q` | **202 passés, 54 ignorés** |
-| Intégration (PostGIS réel) | `TEST_DATABASE_URL=…` `pytest -q` | **256 passés, 0 ignoré** |
+| Unitaire (sans Postgres) | `pytest -q` | **223 passés, 56 ignorés** |
+| Intégration (PostGIS réel) | `TEST_DATABASE_URL=…` `pytest -q` | **279 passés, 0 ignoré** (dérivé) |
 
-Les 54 tests « ignorés » en mode unitaire sont les tests d'intégration gardés par
+Le total d'intégration est **dérivé** de l'invariant `unitaire passés + ignorés =
+intégration passés` → `223 + 56 = 279` : en mode intégration, les 56 tests gardés par
+`TEST_DATABASE_URL` s'exécutent et passent (ils ne sont plus ignorés), tandis que les
+autres (dont les 2 cas de `test_auth_rate_limit.py`, qui ne sont PAS gardés) passent
+dans les deux modes. Le total exact du mode intégration est confirmé en CI (job
+PostGIS) ; localement, PostGIS n'est pas requis pour cette mesure.
+
+Les 56 tests « ignorés » en mode unitaire sont les tests d'intégration gardés par
 `TEST_DATABASE_URL` ; en mode intégration ils s'exécutent tous et **doivent**
 passer (c'est le cas). Les tests d'intégration tournent avec le rôle applicatif
 **non-superuser `dme_app`** (NOBYPASSRLS), ce qui prouve que la RLS ne peut pas
@@ -43,7 +50,7 @@ passer (c'est le cas). Les tests d'intégration tournent avec le rôle applicati
 
 ### 2.2 Frontend (`vitest`)
 
-`npm run test` → **24 fichiers, 132 tests, tous passés**.
+`npm run test` → **26 fichiers, 143 tests, tous passés**.
 
 Couvre : CRUD hors ligne depuis la base locale chiffrée, rejeu idempotent de la
 sync, illisibilité des PHI sans la clé (mauvaise clé), purge sur révocation,
@@ -186,9 +193,9 @@ cd frontend && npm run test
 | Volet | État |
 | --- | --- |
 | Pile Docker + `/health` + migrations + seed | ✅ |
-| Backend unitaire (202) | ✅ |
-| Backend intégration PostGIS (256, 0 ignoré) | ✅ |
-| Frontend (132) | ✅ |
+| Backend unitaire (223 passés, 56 ignorés) | ✅ |
+| Backend intégration PostGIS (279, 0 ignoré ; dérivé `223 + 56`, confirmé en CI) | ✅ |
+| Frontend (143) | ✅ |
 | Propriétés P1–P13 | ✅ tracées et vérifiées |
 | Aucune PHI sur surface non authentifiée (probe live + tests) | ✅ |
 | Confidentialité locale (chiffrement, verrouillage, purge) | ✅ |

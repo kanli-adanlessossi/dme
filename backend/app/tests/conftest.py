@@ -56,3 +56,27 @@ def _fast_health_probe(monkeypatch: pytest.MonkeyPatch) -> None:
     # dans main (résolu au moment de l'appel de l'endpoint).
     monkeypatch.setattr("app.core.db.check_database_ready", _instant_probe)
     monkeypatch.setattr("app.main.check_database_ready", _instant_probe)
+
+
+@pytest.fixture(autouse=True)
+def _reset_rate_limiter() -> None:
+    """Isole l'état (mémoire) du limiteur SlowAPI avant chaque test.
+
+    Le limiteur (`app/core/rate_limit.py`) est global et en mémoire : ses compteurs
+    par (IP, endpoint) persisteraient entre tests sous le `TestClient` (même IP
+    `testclient`). Sans ce reset, les suites d'auth qui émettent plusieurs requêtes
+    `/api/auth/*` (p. ex. `test_auth_router.py` : 9 login, 3 refresh, 4
+    set-credentials ; `test_auth_task7.py` : 2 login) finiraient par déclencher le
+    429 par IP (défaut « 10/minute »), rendant les tests dépendants de l'ordre : un
+    `TestClient` neuf ne remet PAS à zéro ce compteur global. Le reset est purement
+    un isolant de test ; il ne modifie aucun comportement de production.
+
+    Cette fixture ne reset qu'au **setup** de chaque test (jamais pendant son corps) ;
+    la fixture locale de `test_public_rate_limit_cache.py` reset au setup ET au
+    teardown. L'accumulation intra-test dont dépend ce module (60+ requêtes dans la
+    même fenêtre) est donc préservée, et l'ordre des deux `autouse` est indifférent
+    (deux resets consécutifs au setup laissent le compteur à zéro).
+    """
+    from app.core.rate_limit import limiter
+
+    limiter.reset()

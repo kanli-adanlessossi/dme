@@ -111,6 +111,21 @@ class Settings(BaseSettings):
     # limitées ; les routes authentifiées et `/health` ne le sont pas.
     public_rate_limit: str = "60/minute"
 
+    # --- Limitation de débit des routes d'authentification (par IP) -------------
+    # Défense PAR IP sur `/api/auth/*`, COMPLÉMENTAIRE au verrouillage PAR COMPTE
+    # (`app/services/lockout.py`, 5 échecs → verrou 15 min). Le lockout par compte
+    # ne voit pas un balayage multi-comptes (un seul essai par compte, jamais de
+    # seuil atteint sur un compte donné) ; cette limite par IP casse justement ce
+    # balayage. Même doctrine que `public_rate_limit` : la limite vit au reverse
+    # proxy en production (Nginx `limit_req`, zone `auth_zone`, voir
+    # `deploy/reverse-proxy/`) ; ce réglage pilote le REPLI applicatif (SlowAPI)
+    # qui rend le 429 reproductible sans proxy (dev, tests, mono-instance). Format
+    # « <nombre>/<fenêtre> » (syntaxe `limits`). Jamais codé en dur :
+    # surchargeable via `AUTH_RATE_LIMIT`. Défaut « 10/minute » : assez HAUT pour
+    # ne pas gêner un utilisateur légitime qui se trompe de mot de passe quelques
+    # fois, assez BAS pour casser un balayage multi-comptes depuis une même source.
+    auth_rate_limit: str = "10/minute"
+
     # --- Base de données PostgreSQL + PostGIS ---
     postgres_host: str = "db"
     postgres_port: int = 5432

@@ -28,6 +28,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.audit import build_event, record_audit_standalone
 from app.core.config import get_settings
 from app.core.db import get_session
+from app.core.rate_limit import auth_rate_limit, limiter
 from app.core.tokens import (
     TOKEN_TYPE_REFRESH,
     TokenError,
@@ -103,6 +104,7 @@ _INVALID_SETUP_TOKEN = HTTPException(
     },
     summary="Connexion : émet access + refresh portant tenant_id et rôle",
 )
+@limiter.limit(auth_rate_limit())
 async def login(
     payload: LoginRequest,
     request: Request,
@@ -242,8 +244,10 @@ async def login(
     },
     summary="Rafraîchit la paire de jetons depuis un refresh token valide",
 )
+@limiter.limit(auth_rate_limit())
 async def refresh(
     payload: RefreshRequest,
+    request: Request,
     session: AsyncSession = Depends(get_session),
 ) -> TokenResponse:
     """Émet une nouvelle paire de jetons à partir d'un refresh valide (rotation).
@@ -258,6 +262,10 @@ async def refresh(
     **hérité sans `jti`** (émis avant la tâche 9.2 — invalidé volontairement : la
     fenêtre est bornée par le TTL de 14 j), `jti` déjà consommé (rejeu) ou inconnu.
     Un rejeu invalide toute la famille (détection de vol, voir service).
+
+    Le paramètre `request` n'est PAS utilisé dans le corps : il n'est présent que
+    pour permettre à SlowAPI (décorateur `@limiter.limit`) de dériver la clé IP
+    cliente. Même motif que les routes de `app/routers/public.py`.
     """
     try:
         claims = decode_token(payload.refresh, expected_type=TOKEN_TYPE_REFRESH)
@@ -323,6 +331,7 @@ async def refresh(
     },
     summary="Consomme un jeton de configuration à usage unique et fixe le mot de passe",
 )
+@limiter.limit(auth_rate_limit())
 async def set_credentials(
     payload: SetCredentialsRequest,
     request: Request,

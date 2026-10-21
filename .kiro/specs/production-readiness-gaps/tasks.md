@@ -107,13 +107,17 @@ associées.
   - [x] 9.1 Appliquer immédiatement (configuration, sans modèle) :
     `jwt_access_ttl_seconds = 28800` (8 h) et `jwt_refresh_ttl_seconds = 1209600`
     (14 j) dans `app/core/config.py`. DoD : défauts mis à jour ; 256 tests verts.
-  - [x] 9.2 **(Hors lot courant — phase 2 ; introduit un modèle de données, donc non
-    additif.)** Implémenter la famille `jti` + denylist (voir Data Models) :
+  - [x] 9.2 **(Livrée.)** Famille `jti` + denylist de refresh (voir Data Models) :
     migration de la table `refresh_token`, écriture/consommation du `jti` à
     l'émission, et refus du rejeu d'un `jti` consommé sur `/api/auth/refresh` (chemin
-    en ligne uniquement ; les postes hors ligne n'y accèdent pas). DoD : rejeu d'un
-    refresh consommé rejeté ; travail hors ligne non affecté ; tests verts. À
-    planifier comme lot distinct une fois 9.1 livré.
+    en ligne uniquement ; les postes hors ligne n'y accèdent pas). **Livrée et
+    testée** : migration `0010_refresh_token.py`, service `refresh_tokens.py`
+    (`record_issued_refresh`, `consume_refresh` — UPDATE conditionnel atomique
+    `… RETURNING` + invalidation de famille au rejeu), câblage `auth.py` (login émet
+    `jti`+`family_id` et enregistre le refresh ; refresh consomme, refuse les refresh
+    hérités sans `jti`, rote avec nouveau `jti`/même `family_id`), tests
+    `test_refresh_denylist_db.py` (gardés par `TEST_DATABASE_URL`). DoD atteinte :
+    rejeu d'un refresh consommé rejeté ; travail hors ligne non affecté ; tests verts.
   - _Requirements: 9 ; NFR-7, NFR-2_
 
 ## Task Dependency Graph
@@ -125,7 +129,7 @@ associées.
 6 Fuite outbox center_profile  (indépendant, frontend)
 7 CI avec Postgres             (indépendant, CI)
 8 Dépréciations                (indépendant, maintenance)
-9 Durcissement JWT             (9.1 config, immédiat ; 9.2 denylist, phase 2)
+9 Durcissement JWT             (9.1 config, immédiat ; 9.2 denylist, livrée)
 
 2 ──> 3 Image frontend prod + CSP applicative ──> 4 Rate-limit + cache publics
       (3 réutilise les valeurs d'en-têtes de 2 ;
@@ -164,8 +168,10 @@ parallélisable. Chemin critique : **2 → 3 → 4**.
   en parallèle.
 - Décisions : les ADR G-6 et G-9 sont **tranchés** (section « Décisions
   d'architecture (ADR) » de `design.md`) ; les tâches 6 et 9 en appliquent le choix.
-- Découpage de la tâche 9 : 9.1 (raccourcissement des TTL, simple configuration) est
-  dans ce lot ; 9.2 (table `refresh_token` + denylist) est un lot de phase 2 car elle
-  introduit un modèle de données (non additif).
+- Découpage de la tâche 9 : 9.1 (raccourcissement des TTL, configuration) et 9.2
+  (table `refresh_token` + denylist `jti` + rotation de famille) sont **toutes deux
+  livrées**. 9.2 a bien introduit un modèle de données (migration `0010`), implémenté
+  via le service `refresh_tokens.py`, câblé dans `auth.py` et couvert par
+  `test_refresh_denylist_db.py`.
 - Hors de ce lot : les améliorations facultatives (A-1 chiffrement Web Crypto, A-2
   jetons hors `localStorage`) ne sont pas planifiées ici.
