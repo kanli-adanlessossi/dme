@@ -42,6 +42,9 @@ from app.models.medical_center import MedicalCenter
 from app.models.tenant import Tenant
 from app.routers import admin as admin_router
 from app.schemas.audit import AuditEvent
+from app.schemas.tenant_data import EraseReport, TenantExport, TenantProfileExport
+from app.services.tenant_data import TenantNotFoundError as ExportTenantNotFoundError
+from app.services.tenant_data import TenantStillActiveError
 
 # Coordonnées valides à Lomé (dans la boîte englobante du Togo).
 _LOME_LON, _LOME_LAT = 1.2255, 6.1319
@@ -296,8 +299,13 @@ def test_create_tenant_201_renvoie_jeton_et_audite(
     assert admin_user.role == "tenant_admin"
     assert admin_user.password_hash is None  # jamais de mot de passe en clair
     assert admin_user.setup_token_hash is not None
-    # Le jeton renvoyé correspond bien à l'empreinte stockée (usage unique).
-    assert verify_setup_token(body["setup_token"], admin_user.setup_token_hash)
+    # Schéma selector + verifier (ADR-2) : le jeton renvoyé a la forme
+    # `"<selector>.<verifier>"`. Le selector est stocké EN CLAIR (indexé), et seule
+    # l'empreinte du verifier est stockée — le verifier s'y vérifie (usage unique).
+    selector, separator, verifier = body["setup_token"].partition(".")
+    assert separator == "."
+    assert admin_user.setup_token_selector == selector
+    assert verify_setup_token(verifier, admin_user.setup_token_hash)
     # Le centre est cadré au tenant créé.
     assert center.tenant_id == admin_user.tenant_id
 
@@ -447,3 +455,251 @@ def test_patch_tenant_inconnu_404(client: TestClient) -> None:
         f"/api/admin/tenants/{uuid.uuid4()}", json={"status": "inactive"}
     )
     assert resp.status_code == 404
+
+
+# --- Export des données d'un tenant (spec tenant-data-rights, exigence 1) --------
+#
+# Le routeur délègue la lecture cadrée et sans secret au service `export_tenant`
+# (couvert, pour la RLS et l'absence de secret, par les tests d'intégration
+# PostGIS de la tâche 8). Ces tests ciblent le **contrat du routeur** : cadrage
+# par rôle (403), audit `tenant.export` dans la même transaction, et 404 sur un
+# tenant inconnu — on substitue donc `export_tenant` par un double.
+
+
+def _fake_export(tenant_id: uuid.UUID) -> TenantExport:
+    """Construit un `TenantExport` minimal pour un tenant donné."""
+    return TenantExport(
+        tenant=TenantProfileExport(
+            id=tenant_id,
+            name="Centre",
+            region_id=_REGION_ID,
+            status="active",
+            created_at=datetime.now(UTC),
+        )
+    )
+
+
+@pytest.fixture
+def patch_export(monkeypatch: pytest.MonkeyPatch):
+    """Substitue `export_tenant` du routeur par un double configurable.
+
+    Renvoie une fonction `configure(*, not_found=False)` ; par défaut, l'export
+    réussit et renvoie un `TenantExport` pour le tenant demandé.
+    """
+
+    def configure(*, not_found: bool = False) -> None:
+        async def _export(_session: object, tenant_id: uuid.UUID) -> TenantExport:
+            if not_found:
+                raise ExportTenantNotFoundError
+            return _fake_export(tenant_id)
+
+        monkeypatch.setattr(admin_router, "export_tenant", _export)
+
+    return configure
+
+
+def test_export_refuse_un_role_non_platform_admin_403(
+    client: TestClient, patch_export
+) -> None:
+    """Un tenant_admin ne peut pas exporter un tenant → 403 (opération réservée)."""
+    _set_principal("tenant_admin")
+    _set_session(_FakeAdminSession())
+    patch_export()
+
+    resp = client.post(f"/api/admin/tenants/{uuid.uuid4()}/export")
+    assert resp.status_code == 403
+
+
+def test_export_tenant_200_renvoie_export_et_audite(
+    client: TestClient,
+    captured_audit: list[AuditEvent],
+    patch_export,
+) -> None:
+    """Export valide → 200, renvoie le TenantExport, audite `tenant.export`."""
+    _set_principal("platform_admin")
+    session = _FakeAdminSession()
+    _set_session(session)
+    patch_export()
+
+    tenant_id = uuid.uuid4()
+    resp = client.post(f"/api/admin/tenants/{tenant_id}/export")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["tenant"]["id"] == str(tenant_id)
+    assert body["schema_version"] == 1
+
+    # L'export est audité (acteur = platform_admin, tenant cible) dans la même
+    # transaction, puis validé (fail-closed, NFR-3).
+    assert len(captured_audit) == 1
+    assert captured_audit[0].action == "tenant.export"
+    assert captured_audit[0].tenant_id == tenant_id
+    assert captured_audit[0].entity == "tenant"
+    assert captured_audit[0].entity_id == tenant_id
+    assert captured_audit[0].actor_user_id == _principal.sub  # type: ignore[union-attr]
+    assert session.commits == 1
+
+
+def test_export_tenant_inconnu_404_sans_audit(
+    client: TestClient,
+    captured_audit: list[AuditEvent],
+    patch_export,
+) -> None:
+    """Un tenant inconnu → 404, sans écriture d'audit ni commit (aucun effet)."""
+    _set_principal("platform_admin")
+    session = _FakeAdminSession()
+    _set_session(session)
+    patch_export(not_found=True)
+
+    resp = client.post(f"/api/admin/tenants/{uuid.uuid4()}/export")
+    assert resp.status_code == 404
+    assert captured_audit == []
+    assert session.commits == 0
+
+
+# --- Effacement des données d'un tenant (spec tenant-data-rights, exigence 2) ----
+#
+# Le routeur délègue la suppression cadrée et préservant l'audit au service
+# `erase_tenant` (couvert, pour la RLS, l'ordre FK et l'append-only, par les tests
+# d'intégration PostGIS de la tâche 8). Ces tests ciblent le **contrat du
+# routeur** : cadrage par rôle (403), audit d'intention `tenant.erase` écrit AVANT
+# l'acte dans une transaction SÉPARÉE committée d'abord (donc écrit même quand
+# l'effacement échoue ensuite), garde-fous 409 (tenant actif) / 404 (inconnu). On
+# substitue donc `erase_tenant` et `record_audit_standalone` par des doubles.
+
+
+def _erase_report(tenant_id: uuid.UUID) -> EraseReport:
+    """Construit un `EraseReport` minimal pour un tenant donné."""
+    return EraseReport(
+        tenant_id=tenant_id,
+        erased_counts={"visit": 0, "patient": 0, "tenant": 1},
+        audit_preserved=True,
+        exported_first=False,
+    )
+
+
+@pytest.fixture
+def patch_erase(monkeypatch: pytest.MonkeyPatch):
+    """Substitue `erase_tenant` du routeur par un double configurable.
+
+    Renvoie `configure(*, still_active=False, not_found=False)` ; par défaut,
+    l'effacement réussit et renvoie un `EraseReport`.
+    """
+
+    def configure(*, still_active: bool = False, not_found: bool = False) -> None:
+        async def _erase(_session: object, tenant_id: uuid.UUID) -> EraseReport:
+            if still_active:
+                raise TenantStillActiveError
+            if not_found:
+                raise ExportTenantNotFoundError
+            return _erase_report(tenant_id)
+
+        monkeypatch.setattr(admin_router, "erase_tenant", _erase)
+
+    return configure
+
+
+@pytest.fixture
+def captured_intent(monkeypatch: pytest.MonkeyPatch) -> list[AuditEvent]:
+    """Capture l'audit d'intention écrit via `record_audit_standalone`.
+
+    L'endpoint d'effacement écrit l'intention dans une transaction séparée
+    committée d'abord. On substitue `record_audit_standalone` (chemin autonome)
+    pour capturer l'événement sans toucher une vraie base.
+    """
+    events: list[AuditEvent] = []
+
+    async def _fake_standalone(event: AuditEvent) -> None:
+        events.append(event)
+
+    monkeypatch.setattr(admin_router, "record_audit_standalone", _fake_standalone)
+    return events
+
+
+def test_erase_refuse_un_role_non_platform_admin_403(
+    client: TestClient, patch_erase, captured_intent: list[AuditEvent]
+) -> None:
+    """Un tenant_admin ne peut pas effacer un tenant → 403 (opération réservée).
+
+    Le 403 est opposé par `require_roles` AVANT toute logique : aucune intention
+    d'effacement n'est journalisée.
+    """
+    _set_principal("tenant_admin")
+    _set_session(_FakeAdminSession())
+    patch_erase()
+
+    resp = client.post(f"/api/admin/tenants/{uuid.uuid4()}/erase")
+    assert resp.status_code == 403
+    assert captured_intent == []
+
+
+def test_erase_tenant_200_audit_intention_avant_acte(
+    client: TestClient,
+    captured_intent: list[AuditEvent],
+    patch_erase,
+) -> None:
+    """Effacement valide → 200, renvoie l'EraseReport ; intention auditée avant l'acte."""
+    _set_principal("platform_admin")
+    session = _FakeAdminSession()
+    _set_session(session)
+    patch_erase()
+
+    tenant_id = uuid.uuid4()
+    resp = client.post(f"/api/admin/tenants/{tenant_id}/erase")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["tenant_id"] == str(tenant_id)
+    assert body["audit_preserved"] is True
+    assert body["exported_first"] is False
+
+    # L'intention d'effacement est journalisée (acteur = platform_admin, tenant
+    # cible) via le chemin AUTONOME (transaction séparée committée d'abord).
+    assert len(captured_intent) == 1
+    assert captured_intent[0].action == "tenant.erase"
+    assert captured_intent[0].tenant_id == tenant_id
+    assert captured_intent[0].entity == "tenant"
+    assert captured_intent[0].entity_id == tenant_id
+    assert captured_intent[0].actor_user_id == _principal.sub  # type: ignore[union-attr]
+    # L'effacement a été committé dans la transaction de la requête.
+    assert session.commits == 1
+
+
+def test_erase_tenant_actif_409_mais_intention_tracee(
+    client: TestClient,
+    captured_intent: list[AuditEvent],
+    patch_erase,
+) -> None:
+    """Tenant encore actif → 409 ; l'intention d'effacement reste tracée (avant l'acte)."""
+    _set_principal("platform_admin")
+    session = _FakeAdminSession()
+    _set_session(session)
+    patch_erase(still_active=True)
+
+    resp = client.post(f"/api/admin/tenants/{uuid.uuid4()}/erase")
+    assert resp.status_code == 409
+
+    # L'audit d'intention est committé AVANT l'acte : il survit à l'échec (409).
+    assert len(captured_intent) == 1
+    assert captured_intent[0].action == "tenant.erase"
+    # Aucun commit de la transaction d'effacement (l'acte n'a pas eu lieu).
+    assert session.commits == 0
+
+
+def test_erase_tenant_inconnu_404_mais_intention_tracee(
+    client: TestClient,
+    captured_intent: list[AuditEvent],
+    patch_erase,
+) -> None:
+    """Tenant inconnu → 404 ; l'intention reste tracée (écrite avant l'acte)."""
+    _set_principal("platform_admin")
+    session = _FakeAdminSession()
+    _set_session(session)
+    patch_erase(not_found=True)
+
+    resp = client.post(f"/api/admin/tenants/{uuid.uuid4()}/erase")
+    assert resp.status_code == 404
+
+    # Même sur un tenant inconnu, la tentative est journalisée avant l'acte.
+    assert len(captured_intent) == 1
+    assert captured_intent[0].action == "tenant.erase"
+    # L'effacement n'a produit aucun effet de bord : pas de commit.
+    assert session.commits == 0

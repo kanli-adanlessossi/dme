@@ -24,11 +24,12 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import maplibregl, {
-  type MapLayerMouseEvent,
-  type StyleSpecification,
+import type {
+  Map as MapLibreMap,
+  Marker as MapLibreMarker,
+  MapLayerMouseEvent,
+  StyleSpecification,
 } from "maplibre-gl";
-import "maplibre-gl/dist/maplibre-gl.css";
 
 import {
   fetchTogoRegionsGeoJSON,
@@ -84,8 +85,12 @@ export default function CenterPinPicker({
 }: CenterPinPickerProps) {
   const { t } = useTranslation();
   const containerRef = useRef<HTMLDivElement | null>(null);
-  const mapRef = useRef<maplibregl.Map | null>(null);
-  const markerRef = useRef<maplibregl.Marker | null>(null);
+  const mapRef = useRef<MapLibreMap | null>(null);
+  const markerRef = useRef<MapLibreMarker | null>(null);
+  // Module MapLibre chargé dynamiquement (voir l'effet d'init) ; conservé en
+  // ref pour que `placeMarker` (sync d'une prop contrôlée) puisse créer des
+  // marqueurs après le chargement initial.
+  const maplibreRef = useRef<typeof import("maplibre-gl") | null>(null);
 
   // Les callbacks/valeur sont suivis par ref pour ne pas recréer la carte à
   // chaque rendu (l'init MapLibre est coûteuse et doit rester unique).
@@ -98,11 +103,16 @@ export default function CenterPinPicker({
   const [loading, setLoading] = useState(true);
 
   // --- Création/déplacement de l'épingle ---------------------------------
-  function placeMarker(map: maplibregl.Map, point: LngLat): void {
+  function placeMarker(map: MapLibreMap, point: LngLat): void {
     if (markerRef.current) {
       markerRef.current.setLngLat([point.lng, point.lat]);
       return;
     }
+    const maplibregl = maplibreRef.current;
+    // Le marqueur ne peut être créé qu'une fois MapLibre chargé (init async) ;
+    // la sync de prop qui précéderait le chargement est ignorée (l'init pose
+    // l'épingle initiale depuis `valueRef`).
+    if (!maplibregl) return;
     const marker = new maplibregl.Marker({ color: "#0ea5e9", draggable: true })
       .setLngLat([point.lng, point.lat])
       .addTo(map);
@@ -126,9 +136,18 @@ export default function CenterPinPicker({
 
     const controller = new AbortController();
     let disposed = false;
-    let map: maplibregl.Map | null = null;
+    let map: MapLibreMap | null = null;
 
     async function init(hostEl: HTMLDivElement): Promise<void> {
+      // Chargement dynamique de MapLibre : il sort du bundle d'entrée vers son
+      // propre chunk (budget de bundle, NFR-11 — voir .size-limit.json).
+      const [{ default: maplibregl }] = await Promise.all([
+        import("maplibre-gl"),
+        import("maplibre-gl/dist/maplibre-gl.css"),
+      ]);
+      if (disposed) return;
+      maplibreRef.current = maplibregl;
+
       let data: RegionsFeatureCollection | null = null;
       try {
         data = await fetchTogoRegionsGeoJSON(controller.signal);

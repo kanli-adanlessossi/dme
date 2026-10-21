@@ -32,10 +32,17 @@ Deux modes, selon la disponibilité d'une vraie base (`TEST_DATABASE_URL`) :
 
 | Mode | Commande | Résultat |
 | --- | --- | --- |
-| Unitaire (sans Postgres) | `pytest -q` | **202 passés, 54 ignorés** |
-| Intégration (PostGIS réel) | `TEST_DATABASE_URL=…` `pytest -q` | **256 passés, 0 ignoré** |
+| Unitaire (sans Postgres) | `pytest -q` | **223 passés, 56 ignorés** |
+| Intégration (PostGIS réel) | `TEST_DATABASE_URL=…` `pytest -q` | **279 passés, 0 ignoré** (dérivé) |
 
-Les 54 tests « ignorés » en mode unitaire sont les tests d'intégration gardés par
+Le total d'intégration est **dérivé** de l'invariant `unitaire passés + ignorés =
+intégration passés` → `223 + 56 = 279` : en mode intégration, les 56 tests gardés par
+`TEST_DATABASE_URL` s'exécutent et passent (ils ne sont plus ignorés), tandis que les
+autres (dont les 2 cas de `test_auth_rate_limit.py`, qui ne sont PAS gardés) passent
+dans les deux modes. Le total exact du mode intégration est confirmé en CI (job
+PostGIS) ; localement, PostGIS n'est pas requis pour cette mesure.
+
+Les 56 tests « ignorés » en mode unitaire sont les tests d'intégration gardés par
 `TEST_DATABASE_URL` ; en mode intégration ils s'exécutent tous et **doivent**
 passer (c'est le cas). Les tests d'intégration tournent avec le rôle applicatif
 **non-superuser `dme_app`** (NOBYPASSRLS), ce qui prouve que la RLS ne peut pas
@@ -43,7 +50,7 @@ passer (c'est le cas). Les tests d'intégration tournent avec le rôle applicati
 
 ### 2.2 Frontend (`vitest`)
 
-`npm run test` → **24 fichiers, 132 tests, tous passés**.
+`npm run test` → **26 fichiers, 143 tests, tous passés**.
 
 Couvre : CRUD hors ligne depuis la base locale chiffrée, rejeu idempotent de la
 sync, illisibilité des PHI sans la clé (mauvaise clé), purge sur révocation,
@@ -151,7 +158,11 @@ réel et sont rejouées lors de la recette. Détails et procédure dans
    couper le réseau, créer/éditer patients et visites de part et d'autre (dont une
    édition concurrente de la même note de visite), reconnecter, puis vérifier :
    convergence sans perte ni doublon, et la note de visite en conflit **marquée
-   pour revue** (bannière de conflit).
+   pour revue** (bannière de conflit). Ce scénario est en cours d'automatisation
+   via la pile E2E Playwright (#12) : voir
+   [`frontend/playwright.README.md`](../frontend/playwright.README.md)
+   (installation des navigateurs : `npx playwright install chromium` ; exécution :
+   `npm run test:e2e`).
 2. **Carte < 3 s en 3G** (NFR-11) : build + preview, DevTools profil *Slow 3G* /
    Lighthouse Mobile ; premier rendu utile de la carte < 3 s à la première visite,
    quasi instantané ensuite (service worker).
@@ -170,25 +181,51 @@ docker compose up --build        # puis GET http://localhost:8000/health → 200
 # Backend — suite unitaire (sans Postgres)
 cd backend && .venv/Scripts/python -m pytest -q
 
-# Backend — suite d'intégration (PostGIS réel sur le port 5433)
-docker run --rm -d --name dme_test_pg -e POSTGRES_DB=dme_test \
-  -e POSTGRES_USER=dme_owner -e POSTGRES_PASSWORD=owner_test_pw \
-  -p 5433:5432 postgis/postgis:16-3.4
-TEST_DATABASE_URL="postgresql+asyncpg://dme_owner:owner_test_pw@localhost:5433/dme_test" \
-  .venv/Scripts/python -m pytest -q
+# Backend — suite d'intégration (PostGIS réel) — FAÇON RECOMMANDÉE
+# Provisionne un PostGIS jetable isolé, exporte TEST_DATABASE_URL, lance la
+# suite complète, puis supprime le conteneur de manière INCONDITIONNELLE.
+./dme.sh test-db                 # Linux / macOS
+dme test-db                      # Windows
 
 # Frontend
 cd frontend && npm run test
 ```
+
+La commande `test-db` est la **façon recommandée** de lancer la suite
+d'intégration en local : elle gère pour vous le provisionnement du conteneur, la
+variable `TEST_DATABASE_URL` et le nettoyage. Par défaut, elle expose PostGIS sur
+le port **5433** (surchargeable via `DME_TEST_DB_PORT`, p. ex.
+`DME_TEST_DB_PORT=5434 ./dme.sh test-db`) et exporte
+`TEST_DATABASE_URL=postgresql+asyncpg://dme:dme@localhost:5433/dme`. Le conteneur
+jetable (`dme_test_pg`, image `postgis/postgis:16-3.4`) est supprimé après succès
+**comme après échec**, et le code de sortie de `pytest` est propagé.
+
+<details>
+<summary>Équivalent bas niveau (procédure manuelle <code>docker run</code>)</summary>
+
+Pour lancer la suite d'intégration à la main — par exemple pour inspecter la base
+entre deux exécutions — on peut provisionner le conteneur et définir
+`TEST_DATABASE_URL` soi-même (c'est ce que `test-db` automatise) :
+
+```sh
+docker run --rm -d --name dme_test_pg -e POSTGRES_DB=dme \
+  -e POSTGRES_USER=dme -e POSTGRES_PASSWORD=dme \
+  -p 5433:5432 postgis/postgis:16-3.4
+TEST_DATABASE_URL="postgresql+asyncpg://dme:dme@localhost:5433/dme" \
+  (cd backend && .venv/Scripts/python -m pytest -q)
+docker rm -f dme_test_pg         # nettoyage (à faire soi-même)
+```
+
+</details>
 
 ## 8. Synthèse
 
 | Volet | État |
 | --- | --- |
 | Pile Docker + `/health` + migrations + seed | ✅ |
-| Backend unitaire (202) | ✅ |
-| Backend intégration PostGIS (256, 0 ignoré) | ✅ |
-| Frontend (132) | ✅ |
+| Backend unitaire (223 passés, 56 ignorés) | ✅ |
+| Backend intégration PostGIS (279, 0 ignoré ; dérivé `223 + 56`, confirmé en CI) | ✅ |
+| Frontend (143) | ✅ |
 | Propriétés P1–P13 | ✅ tracées et vérifiées |
 | Aucune PHI sur surface non authentifiée (probe live + tests) | ✅ |
 | Confidentialité locale (chiffrement, verrouillage, purge) | ✅ |

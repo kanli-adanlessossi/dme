@@ -1,0 +1,199 @@
+{
+  "pbtResults": {},
+  "executionHistory": {
+    "1. [#10] Exposer les constantes du KDF comme point de vérité unique": [
+      {
+        "executionId": "f6ec4054-18d3-4368-ad6d-15b9c696cf2d",
+        "chatSessionId": "sess_ddf1bf30-b1f9-491c-9eb1-09e0e68320f2",
+        "timestamp": 1792581044698
+      },
+      {
+        "executionId": "f6ec4054-18d3-4368-ad6d-15b9c696cf2d",
+        "chatSessionId": "sess_ddf1bf30-b1f9-491c-9eb1-09e0e68320f2",
+        "timestamp": 1792581137483
+      }
+    ],
+    "1.1 Dans `frontend/src/lib/session.ts`, promouvoir en **exports nommés** les": [
+      {
+        "executionId": "4ed2cfb9-bc2b-4371-b213-8cf4ef9ca75b",
+        "chatSessionId": "sess_09eb7bad-8ac9-4550-a021-9fce914270ad",
+        "timestamp": 1792581182348
+      },
+      {
+        "executionId": "4ed2cfb9-bc2b-4371-b213-8cf4ef9ca75b",
+        "chatSessionId": "sess_09eb7bad-8ac9-4550-a021-9fce914270ad",
+        "timestamp": 1792581258919
+      }
+    ],
+    "2. [#10] Test de verrouillage anti-régression du KDF": [
+      {
+        "executionId": "e77af283-6b10-49cd-9031-428b876a829a",
+        "chatSessionId": "sess_10ef031d-00cf-467c-b260-0d4e0c5c2f8b",
+        "timestamp": 1792581279724
+      },
+      {
+        "executionId": "e77af283-6b10-49cd-9031-428b876a829a",
+        "chatSessionId": "sess_10ef031d-00cf-467c-b260-0d4e0c5c2f8b",
+        "timestamp": 1792581514213
+      }
+    ],
+    "2.1 Créer `frontend/src/lib/crypto-params.test.ts` (Vitest) qui échoue si un": [
+      {
+        "executionId": "57f6206c-250c-4821-8df0-d2b6c1cf8846",
+        "chatSessionId": "sess_38200294-56f5-4efd-bc6a-3dab4769ba92",
+        "timestamp": 1792581546591
+      },
+      {
+        "executionId": "57f6206c-250c-4821-8df0-d2b6c1cf8846",
+        "chatSessionId": "sess_38200294-56f5-4efd-bc6a-3dab4769ba92",
+        "timestamp": 1792581659133
+      }
+    ],
+    "2.2 Ajouter au même fichier : (a) deux dérivations avec des emails distincts": [
+      {
+        "executionId": "33caf753-6f82-4d1a-b18c-fe400cd5a720",
+        "chatSessionId": "sess_38200294-56f5-4efd-bc6a-3dab4769ba92",
+        "timestamp": 1792581693019
+      },
+      {
+        "executionId": "33caf753-6f82-4d1a-b18c-fe400cd5a720",
+        "chatSessionId": "sess_38200294-56f5-4efd-bc6a-3dab4769ba92",
+        "timestamp": 1792581798131
+      }
+    ],
+    "3. [#9] Test de verrouillage « zéro sink JS dangereux »": [
+      {
+        "executionId": "b68fd709-00a2-41be-a57a-325b49442e29",
+        "chatSessionId": "sess_ee4f4024-9f90-4100-bdb4-2c2c184bd95f",
+        "timestamp": 1792581821833
+      },
+      {
+        "executionId": "b68fd709-00a2-41be-a57a-325b49442e29",
+        "chatSessionId": "sess_ee4f4024-9f90-4100-bdb4-2c2c184bd95f",
+        "timestamp": 1792582208708
+      }
+    ],
+    "3.1 Créer `frontend/src/lib/no-dangerous-sinks.test.ts` (Vitest) qui scanne": [
+      {
+        "executionId": "f14c13f2-79f2-460c-8ecf-6f5b97fc63a7",
+        "chatSessionId": "sess_0ddb16d7-3631-486a-8e6f-123e393390a3",
+        "timestamp": 1792582271663
+      },
+      {
+        "executionId": "f14c13f2-79f2-460c-8ecf-6f5b97fc63a7",
+        "chatSessionId": "sess_0ddb16d7-3631-486a-8e6f-123e393390a3",
+        "timestamp": 1792582395140
+      }
+    ],
+    "3.2 Documenter dans l'en-tête du test ses **limites** : il couvre le code du": [
+      {
+        "executionId": "318ff114-e5f8-452b-9cb8-028bb8d0b0e8",
+        "chatSessionId": "sess_0ddb16d7-3631-486a-8e6f-123e393390a3",
+        "timestamp": 1792582429837
+      },
+      {
+        "executionId": "318ff114-e5f8-452b-9cb8-028bb8d0b0e8",
+        "chatSessionId": "sess_0ddb16d7-3631-486a-8e6f-123e393390a3",
+        "timestamp": 1792582476576
+      }
+    ],
+    "4.1 Évaluer le retrait de `'unsafe-inline'` de `style-src` : inventorier les": [
+      {
+        "executionId": "88a5ca06-2812-4564-a936-1879d978b941",
+        "chatSessionId": "sess_0ddb16d7-3631-486a-8e6f-123e393390a3",
+        "timestamp": 1792582520334
+      },
+      {
+        "executionId": "88a5ca06-2812-4564-a936-1879d978b941",
+        "chatSessionId": "sess_0ddb16d7-3631-486a-8e6f-123e393390a3",
+        "timestamp": 1792582671629
+      }
+    ],
+    "4.2 Étape fail-safe : d'abord émettre la CSP resserrée en": [
+      {
+        "executionId": "88a5ca06-2812-4564-a936-1879d978b941",
+        "chatSessionId": "sess_0ddb16d7-3631-486a-8e6f-123e393390a3",
+        "timestamp": 1792582675202
+      },
+      {
+        "executionId": "88a5ca06-2812-4564-a936-1879d978b941",
+        "chatSessionId": "sess_0ddb16d7-3631-486a-8e6f-123e393390a3",
+        "timestamp": 1792582973221
+      }
+    ],
+    "4.3 Appliquer le changement **identiquement aux 4 blocs `location`** de": [
+      {
+        "executionId": "88a5ca06-2812-4564-a936-1879d978b941",
+        "chatSessionId": "sess_0ddb16d7-3631-486a-8e6f-123e393390a3",
+        "timestamp": 1792582976763
+      },
+      {
+        "executionId": "88a5ca06-2812-4564-a936-1879d978b941",
+        "chatSessionId": "sess_0ddb16d7-3631-486a-8e6f-123e393390a3",
+        "timestamp": 1792583689864
+      }
+    ],
+    "4.4 Si un style légitime (p. ex. MapLibre) est bloqué et non contournable": [
+      {
+        "executionId": "88a5ca06-2812-4564-a936-1879d978b941",
+        "chatSessionId": "sess_0ddb16d7-3631-486a-8e6f-123e393390a3",
+        "timestamp": 1792583693838
+      },
+      {
+        "executionId": "88a5ca06-2812-4564-a936-1879d978b941",
+        "chatSessionId": "sess_0ddb16d7-3631-486a-8e6f-123e393390a3",
+        "timestamp": 1792583831032
+      }
+    ],
+    "4. [#9] Durcissement de `style-src` dans la CSP (fail-safe, Report-Only d'abord)": [
+      {
+        "executionId": "88a5ca06-2812-4564-a936-1879d978b941",
+        "chatSessionId": "sess_0ddb16d7-3631-486a-8e6f-123e393390a3",
+        "timestamp": 1792583831076
+      }
+    ],
+    "5.1 Consigner dans un emplacement durable (commentaire de `session.ts`": [
+      {
+        "executionId": "76cfa8f0-0bd2-429c-b023-94b7cba04387",
+        "chatSessionId": "sess_15a0e4da-b1bb-419c-9079-e63b33409401",
+        "timestamp": 1792583869511
+      },
+      {
+        "executionId": "76cfa8f0-0bd2-429c-b023-94b7cba04387",
+        "chatSessionId": "sess_15a0e4da-b1bb-419c-9079-e63b33409401",
+        "timestamp": 1792583953831
+      }
+    ],
+    "5.2 Consigner la note **« Migration cryptographique »** (commentaire de": [
+      {
+        "executionId": "76cfa8f0-0bd2-429c-b023-94b7cba04387",
+        "chatSessionId": "sess_15a0e4da-b1bb-419c-9079-e63b33409401",
+        "timestamp": 1792583957348
+      },
+      {
+        "executionId": "76cfa8f0-0bd2-429c-b023-94b7cba04387",
+        "chatSessionId": "sess_15a0e4da-b1bb-419c-9079-e63b33409401",
+        "timestamp": 1792584037740
+      }
+    ],
+    "5.3 Non-régression : exécuter la suite frontend complète": [
+      {
+        "executionId": "76cfa8f0-0bd2-429c-b023-94b7cba04387",
+        "chatSessionId": "sess_15a0e4da-b1bb-419c-9079-e63b33409401",
+        "timestamp": 1792584041071
+      },
+      {
+        "executionId": "76cfa8f0-0bd2-429c-b023-94b7cba04387",
+        "chatSessionId": "sess_15a0e4da-b1bb-419c-9079-e63b33409401",
+        "timestamp": 1792584127731
+      }
+    ],
+    "5. [#9, #10] Documentation durable et non-régression finale": [
+      {
+        "executionId": "76cfa8f0-0bd2-429c-b023-94b7cba04387",
+        "chatSessionId": "sess_15a0e4da-b1bb-419c-9079-e63b33409401",
+        "timestamp": 1792584127801
+      }
+    ]
+  }
+}

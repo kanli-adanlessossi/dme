@@ -126,6 +126,23 @@ function queryButton(text: string): HTMLButtonElement | undefined {
   );
 }
 
+/**
+ * Pilote la connectivité navigateur : (dé)positionne `navigator.onLine` à la
+ * source canonique lue par `useOnline()` et diffuse l'événement `window`
+ * correspondant (`online`/`offline`) que le hook écoute. Enveloppé dans `act`
+ * car le listener du hook déclenche un `setState` (re-rendu React).
+ */
+function setOnline(value: boolean) {
+  Object.defineProperty(window.navigator, "onLine", {
+    value,
+    configurable: true,
+    writable: true,
+  });
+  act(() => {
+    window.dispatchEvent(new Event(value ? "online" : "offline"));
+  });
+}
+
 function setInput(name: string, value: string) {
   // Repère le champ par son libellé via la structure label>span+input ; ici on
   // cible par type/valeur. Plus simple : on prend tous les inputs texte.
@@ -301,6 +318,105 @@ describe("CenterAdmin — rôle non-admin (lecture seule, REQ-6.1)", () => {
     expect(fieldset!.hasAttribute("disabled")).toBe(true);
     // L'éditeur de services ne propose pas de champ d'ajout en lecture seule.
     expect(queryButton("Ajouter")).toBeUndefined();
+  });
+});
+
+// -------------------------------------------------------------------------
+// UX a priori hors-ligne (#4) — REQ-4 (critères 1, 2) ; NFR-5.
+//
+// Technique M1 : `useOnline()` lit `navigator.onLine` + écoute les événements
+// `window` online/offline ; `../lib/sync` n'a donc PAS besoin d'être mocké. On
+// pilote la connectivité via `setOnline()` (défini plus haut).
+// -------------------------------------------------------------------------
+describe("CenterAdmin — signalement hors-ligne (#4, REQ-4.1/4.2, NFR-5)", () => {
+  it("hors-ligne : affiche la bannière (role=status) et désactive « Enregistrer »", async () => {
+    fetchCenterProfile.mockResolvedValue(PROFILE);
+    await render();
+
+    // En ligne au départ : le bouton est actif, pas de bannière hors-ligne.
+    const saveBefore = queryButton("Enregistrer")!;
+    expect(saveBefore.disabled).toBe(false);
+
+    // Bascule hors-ligne (événement navigateur).
+    setOnline(false);
+
+    // Bannière informative présente : role="status" + message français dédié.
+    const statuses = Array.from(
+      container!.querySelectorAll('[role="status"]'),
+    );
+    const banner = statuses.find((el) =>
+      (el.textContent ?? "").includes("hors ligne"),
+    );
+    expect(banner).toBeTruthy();
+    expect(banner!.textContent ?? "").toContain(
+      "La modification du profil de votre centre",
+    );
+
+    // Le bouton « Enregistrer » est désormais désactivé (ADR-1 : pas d'action
+    // active-qui-échoue).
+    const saveAfter = queryButton("Enregistrer")!;
+    expect(saveAfter.disabled).toBe(true);
+  });
+
+  it("chargement déjà hors-ligne (L1) : message hors-ligne, pas « erreur de chargement »", async () => {
+    // Le poste est hors-ligne AVANT le montage : le GET du profil échoue.
+    setOnline(false);
+    fetchCenterProfile.mockRejectedValue(new ApiError(503, "indisponible"));
+    await render();
+
+    const text = container!.textContent ?? "";
+    // Message hors-ligne dédié (distinguer absence de réseau d'une erreur
+    // serveur générique).
+    expect(text).toContain("Une connexion Internet est nécessaire");
+    // PAS le message d'erreur de chargement générique.
+    expect(text).not.toContain("Impossible de charger le profil");
+    // Présenté comme information (role="status"), pas comme alerte serveur.
+    const status = container!.querySelector('[role="status"]');
+    expect(status).not.toBeNull();
+    expect(container!.querySelector('[role="alert"]')).toBeNull();
+  });
+
+  it("retour en ligne : réactive « Enregistrer » et l'enregistrement fonctionne", async () => {
+    fetchCenterProfile.mockResolvedValue(PROFILE);
+    updateCenterProfile.mockResolvedValue({ ...PROFILE, name: "Centre rénové" });
+    await render();
+
+    // Hors-ligne : bouton désactivé.
+    setOnline(false);
+    expect(queryButton("Enregistrer")!.disabled).toBe(true);
+
+    // Retour en ligne : bouton réactivé.
+    setOnline(true);
+    expect(queryButton("Enregistrer")!.disabled).toBe(false);
+
+    // L'enregistrement fonctionne normalement une fois reconnecté.
+    setInput("Centre de santé de Lomé", "Centre rénové");
+    await submitForm();
+
+    expect(updateCenterProfile).toHaveBeenCalledTimes(1);
+    const patch = updateCenterProfile.mock.calls[0][0] as Record<
+      string,
+      unknown
+    >;
+    expect(patch.name).toBe("Centre rénové");
+    expect(container!.textContent ?? "").toContain("Profil enregistré");
+  });
+
+  it("filet a posteriori : fetch échoue pendant l'édition en ligne → errors.offline", async () => {
+    // En ligne (navigator.onLine=true) mais le réseau tombe au moment du PATCH :
+    // `updateCenterProfile` lève une erreur non-ApiError (fetch rejeté), mappée
+    // sur le message `errors.offline` (filet de sécurité a posteriori).
+    fetchCenterProfile.mockResolvedValue(PROFILE);
+    updateCenterProfile.mockRejectedValue(new TypeError("Failed to fetch"));
+    await render();
+
+    await submitForm();
+
+    const alert = container!.querySelector('[role="alert"]');
+    expect(alert).not.toBeNull();
+    expect(alert!.textContent ?? "").toContain(
+      "L'enregistrement nécessite une connexion Internet",
+    );
   });
 });
 

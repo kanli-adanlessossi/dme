@@ -1,0 +1,77 @@
+{
+  "verdict": "CHANGES_REQUESTED",
+  "findings": [
+    {
+      "id": 1,
+      "severity": "MEDIUM",
+      "title": "Base de comptes incohérente : mélange du baseline 221/56 (contexte) et 202/54 (document réel)",
+      "location": "Correctif 2 — Procédure de mesure / Emplacements exacts à mettre à jour",
+      "problem": "La Procédure de mesure affirme '> 221', '≈ 223' et 'skips inchangé : 56', alors que docs/E2E_VERIFICATION.md porte réellement 202 passés / 54 ignorés (unitaire) et 256 (intégration). Les valeurs 221/56/223 viennent du contexte de lancement des requirements, pas du fichier à corriger.",
+      "fix": "Remplacer 221/223/56 par le baseline réel du document (202/54/256) ; instruire de ne reporter que des chiffres mesurés et préciser que les skips restent 54, pas 56. Expliciter que l'écart 202 vs 221 relève d'un baseline distinct non à réconcilier ici."
+    },
+    {
+      "id": 2,
+      "severity": "HIGH",
+      "title": "Arithmétique du total d'intégration erronée (invariant 202 + 54 = 256 cassé par la formule + 56)",
+      "location": "Correctif 2 — Procédure de mesure / §2.1 intégration",
+      "problem": "Le design propose 'intégration = unitaire + skips exécutés = (nouveau total unitaire) + 56'. L'invariant réel du document est 202 + 54 = 256. Avec '+ 56' et un baseline de 202 le calcul est faux. De plus test_auth_rate_limit.py n'est pas gardé par TEST_DATABASE_URL (le design le dit lui-même), donc ses 2 cas comptent comme PASSÉS dans les deux modes, pas comme skips.",
+      "fix": "Corriger la formule : intégration_passés = (nouveau total unitaire passés) + 54 (skips). Vérifier que l'identité unitaire_passés + 54 = intégration_passés tient sur les nombres mesurés. Remplacer '+ 56' par '+ 54'."
+    },
+    {
+      "id": 3,
+      "severity": "HIGH",
+      "title": "Justification incomplète de l'innocuité des deux fixtures autouse de reset du limiteur",
+      "location": "Correctif 1 — Testabilité / Décision fixture autouse conftest",
+      "problem": "Le design justifie la coexistence de la fixture conftest et de la fixture locale de test_public_rate_limit_cache.py par 'reset puis reset = reset', argument qui ne couvre pas le vrai risque (test_public_rate_limit_cache.py dépend d'une accumulation de 60+ requêtes intra-test sans reset intermédiaire). Après vérification l'interaction est sûre, mais la justification est fondée sur le mauvais motif.",
+      "fix": "Remplacer la justification : les deux fixtures ne resettent qu'au setup (et teardown pour la locale), jamais pendant le corps du test ; l'accumulation intra-test est donc préservée ; l'ordre des deux autouse est indifférent. Lier explicitement la non-régression de test_public_rate_limit_cache.py à ce risque dans la vérification finale."
+    },
+    {
+      "id": 4,
+      "severity": "MEDIUM",
+      "title": "Comptage approximatif des requêtes d'auth ; la fixture conftest est obligatoire, pas seulement prudente",
+      "location": "Correctif 1 — Testabilité / comptage des requêtes",
+      "problem": "Le design écrit 'login seul ≈ 9–11 appels — déjà à la limite'. Comptage exact vérifié : 9 login dans test_auth_router.py + 2 dans test_auth_task7.py, 3 refresh, 4 set-credentials. Le limiteur global n'est pas remis à zéro par un TestClient neuf ; sans la fixture conftest, le 10e login du process bascule en 429 et casse test_auth_router.py.",
+      "fix": "Remplacer les chiffres approximatifs par les comptages exacts et affirmer que la fixture conftest est obligatoire. Ajouter un critère : relancer test_auth_router.py et test_auth_task7.py isolément ET dans la suite complète pour prouver l'indépendance à l'ordre."
+    },
+    {
+      "id": 5,
+      "severity": "MEDIUM",
+      "title": "Position de request dans refresh et hypothèse ruff ARG à verrouiller",
+      "location": "Correctif 1 — Fichier 3 (c) Signature de refresh",
+      "problem": "Le design place request après payload (cohérent avec login) ; SlowAPI localise request par introspection, donc la position importe peu — correct. request ne sera pas utilisé dans refresh ; le design affirme qu'aucune règle ruff ne le signale. Vérifié : pyproject.toml n'a pas de select personnalisé, ARG n'est pas activée, F841 ne vise que les locales — la claim est exacte mais non verrouillée contre une future activation d'ARG.",
+      "fix": "Aucun changement de code. Ajouter à la vérification finale : 'ruff check . ne signale pas le paramètre request inutilisé de refresh (ARG non activée, confirmé dans pyproject.toml : aucun select personnalisé).'"
+    },
+    {
+      "id": 6,
+      "severity": "NIT",
+      "title": "Ordre physique des location Nginx présenté comme s'il avait un effet fonctionnel",
+      "location": "Correctif 1 — Fichier 5 (b)",
+      "problem": "Le design dit à la fois 'placé AVANT /api/' et 'Nginx retient le préfixe le plus long' ; redondant et potentiellement trompeur. Pour des location préfixe (cas vérifié dans nginx.conf), le plus long l'emporte quel que soit l'ordre.",
+      "fix": "Reformuler : l'ordre physique est purement une aide à la lecture ; pour des location préfixe non-regex, /api/auth/ (plus long) l'emporte sur /api/ indépendamment de l'ordre."
+    },
+    {
+      "id": 7,
+      "severity": "NIT",
+      "title": "Non-équivalence proxy (burst=5) vs repli SlowAPI (pas de burst) non mentionnée",
+      "location": "Correctif 1 — Fichier 5 (a)/(b)",
+      "problem": "Nginx rate=10r/m + burst=5 nodelay tolère une rafale que le repli SlowAPI '10/minute' ne modélise pas ; les deux couches ne sont pas bit-à-bit identiques en tolérance de rafale. Non bloquant mais non dit.",
+      "fix": "Ajouter une phrase notant que burst=5 n'a pas d'équivalent SlowAPI (limits ne modélise pas de burst), que les deux couches diffèrent en tolérance de rafale mais remplissent le même objectif, et que le proxy est la couche de référence en prod."
+    },
+    {
+      "id": 8,
+      "severity": "NIT",
+      "title": "Présentation imprécise de httpx2 comme outil de test direct",
+      "location": "Overview — pile technologique",
+      "problem": "Vérifié : la dépendance de test est httpx2>=2.13 (claim exacte). Le TestClient vient de Starlette/FastAPI et s'appuie sur httpx2 en interne ; le design le présente comme si httpx2 était directement l'outil de test.",
+      "fix": "Optionnel : préciser 'TestClient (Starlette), adossé à httpx2'."
+    },
+    {
+      "id": 9,
+      "severity": "NIT",
+      "title": "Contrainte filterwarnings=error::DeprecationWarning non nommée",
+      "location": "Correctif 1 — Testabilité / Vérification finale",
+      "problem": "Vérifié dans pyproject.toml : filterwarnings transforme toute dépréciation en erreur. SlowAPI 0.1.10 déjà exercé sur /api/public/* sans erreur, donc pas de risque nouveau, mais la contrainte n'est pas mentionnée.",
+      "fix": "Ajouter à la Vérification finale : la suite tourne avec filterwarnings=error ; le nouveau test et les décorateurs @limiter.limit ne doivent émettre aucune dépréciation."
+    }
+  ]
+}

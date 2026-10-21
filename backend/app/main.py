@@ -72,12 +72,16 @@ app = FastAPI(
 # repli SlowAPI rend le 429 reproductible et testable quand aucun proxy n'est en
 # façade (dev, tests, déploiement mono-instance), conformément au repli documenté.
 #
-# Portée STRICTEMENT limitée à `/api/public/*` : le limiteur est posé par décorateur
-# (`@limiter.limit(public_rate_limit())`) sur les seules routes publiques (voir
-# `app/routers/public.py`). Aucun `default_limits` n'est configuré et aucun middleware
-# global n'est ajouté, de sorte que les routes authentifiées (`auth`, `sync`,
-# `center`, `patients`, `visits`, `admin`) et `/health` ne sont JAMAIS limitées.
-# Le seuil est configurable via `PUBLIC_RATE_LIMIT` (défaut « 60/minute »).
+# Portée bornée par décorateur explicite (jamais globalement) : le limiteur est posé
+# via `@limiter.limit(...)` sur `/api/public/*` (`public_rate_limit()`, voir
+# `app/routers/public.py`) ET sur `/api/auth/*` (`auth_rate_limit()`, voir
+# `app/routers/auth.py` : `login`, `refresh`, `set-credentials`). La limite d'auth est
+# un REPLI applicatif, défense par IP complémentaire du verrouillage par compte
+# (`app/services/lockout.py`). Aucun `default_limits` n'est configuré et aucun
+# middleware global n'est ajouté, de sorte que les autres routes authentifiées
+# (`sync`, `center`, `patients`, `visits`, `admin`) et `/health` ne sont JAMAIS
+# limitées. Les seuils sont configurables via `PUBLIC_RATE_LIMIT` (défaut
+# « 60/minute ») et `AUTH_RATE_LIMIT` (défaut « 10/minute »).
 #
 # `app.state.limiter` est requis par SlowAPI ; le handler convertit un dépassement
 # (`RateLimitExceeded`) en réponse 429 au corps minimal (aucune fuite d'information,

@@ -89,3 +89,176 @@ jobs:
 
       - name: Run full test suite (pytest)
         run: pytest -q
+
+  # Job frontend — exigence 4 (critères 1, 4) ; NFR-12.
+  #
+  # Objectif : apporter la couverture frontend en CI, aujourd'hui absente
+  # (le pipeline n'avait qu'un seul job `backend`). Ce job est ADDITIF et
+  # s'exécute en PARALLÈLE du job backend (aucune dépendance `needs` entre eux) :
+  # le job backend ci-dessus reste inchangé.
+  #
+  # Node 20 : cohérent avec l'image de build du frontend (`node:20-slim`,
+  # frontend/Dockerfile). `npm ci` installe de façon reproductible à partir de
+  # frontend/package-lock.json. On exécute Vitest (`npm run test` → `vitest run`)
+  # puis la build de prod (`npm run build` → `tsc -b && vite build`).
+  #
+  # Budget de bundle (tâche 5, #13 ; exigence 3, NFR-11) : une étape `size-limit`
+  # BLOQUANTE suit la build. Elle mesure la taille gzip (déterministe, sans
+  # variance — ADR-2) de deux artefacts calibrés dans `frontend/.size-limit.json` :
+  # l'app shell (premier rendu, hors carte) et le chunk MapLibre (chargé à la
+  # demande). Un dépassement renvoie un code non nul et fait échouer le job.
+  #
+  # Lighthouse CI (tâche 6, #13 ; exigence 3 critères 3-4, NFR-11) : étape
+  # INFORMATIVE ajoutée après la build. Lighthouse mesure la vraie métrique de
+  # premier rendu (NFR-11) mais varie selon la machine CI — le rendre bloquant
+  # produirait des faux échecs (ADR-2). L'étape est donc NON BLOQUANTE
+  # (`continue-on-error: true`) et ses seuils sont en `warn` (jamais `error`)
+  # dans frontend/.lighthouserc.json. Le rapport est publié en artefact.
+  #
+  # E2E Playwright (tâche 8, #12 ; exigence 2, 4 critère 2 ; NFR-6) : étapes
+  # BLOQUANTES ajoutées après la build/budget. Le scénario de convergence
+  # multi-poste a été éprouvé STABLE (105 exécutions répétées, 0 flaky — détail
+  # dans frontend/e2e/README.md), donc il reste sur le CHEMIN BLOQUANT des PR :
+  # étape normale, SANS `continue-on-error` et SANS retries (playwright.config.ts
+  # fixe `retries: 0`). Pas de split nightly ni de tag `@nightly` (le repli
+  # nightly de l'exigence 4.2 ne vaut que pour un E2E instable).
+  #
+  # Coût CI maîtrisé (L2, obligatoire) : le dossier des navigateurs Playwright
+  # (~/.cache/ms-playwright) est MIS EN CACHE, clé dérivée de la version
+  # Playwright épinglée — on hache frontend/package-lock.json (qui épingle
+  # `@playwright/test`), de sorte qu'une montée de version fasse tourner la clé
+  # et redéclenche le téléchargement, sinon on réutilise le cache (~100+ Mo
+  # évités par run).
+  #
+  # ──────────────────────────────────────────────────────────────────────────
+  # COÛT CI AJOUTÉ PAR CE JOB & STRATÉGIE DE CONTENTION (tâche 9.1 ; exigence 4
+  # critère 3 ; NFR-11, NFR-12). Mesure de non-régression de la spec
+  # dev-and-ci-tooling.
+  #
+  # Point clé : le job `frontend` est ADDITIF et s'exécute EN PARALLÈLE du job
+  # `backend` (aucun `needs` entre les deux). Le job backend n'est donc NI
+  # modifié NI ralenti — vérifié (git diff HEAD sur ce fichier = 126 insertions,
+  # 0 suppression, uniquement ce job et ses commentaires). Le temps "mur" du
+  # pipeline est max(backend, frontend), pas la somme. L'ajout du frontend
+  # n'allonge le pipeline QUE si ce job dépasse la durée du job backend.
+  #
+  # Décomposition du coût du job frontend (ordre de grandeur ; local Windows à
+  # titre indicatif, le runner ubuntu-latest est comparable) :
+  #   • npm ci ...................... ~15–40 s  (atténué par le cache npm, infra)
+  #   • vitest run (161 tests) ...... ~10–20 s
+  #   • vite build .................. ~7 s      (mesuré en local)
+  #   • size-limit (bloquant) ....... <1 s      (mesuré : ~0,4 s ; gzip, déterministe)
+  #   • Lighthouse (informatif) ..... ~20–40 s  (non bloquant, continue-on-error)
+  #   • cache restore Playwright .... ~5–15 s   (HIT) vs re-download ~100+ Mo (MISS)
+  #   • playwright install chromium . no-op rapide sur cache HIT (+ libs système)
+  #   • E2E Playwright (bloquant) ... ~30–60 s  (build prod + preview :4173 + suite)
+  #   → Total attendu du job : ~2–4 min selon le cache. Reste sous l'enveloppe du
+  #     job backend (service PostGIS + migrations + 320 tests), donc coût "mur"
+  #     du pipeline ≈ 0 ajouté tant que le frontend ne dépasse pas le backend.
+  #
+  # Stratégie de contention (exigence 4.3) :
+  #   1. PARALLÉLISME — jobs séparés sans `needs` : coût absorbé par le job le
+  #      plus long, pas additionné.
+  #   2. CACHE npm — `actions/setup-node` avec `cache: npm` (clé = package-lock) :
+  #      évite de retélécharger les dépendances à chaque run.
+  #   3. CACHE navigateurs Playwright (L2, obligatoire) — ~/.cache/ms-playwright
+  #      mis en cache (clé = hash de package-lock, qui épingle @playwright/test) :
+  #      ~100+ Mo de téléchargement évités par run sur cache HIT.
+  #   4. GARDE-FOU DÉTERMINISTE bloquant bon marché — size-limit (<1 s, gzip, sans
+  #      variance) sur le chemin bloquant ; Lighthouse (variable, plus coûteux)
+  #      laissé INFORMATIF (`continue-on-error: true`), jamais barrière de PR.
+  #   5. REPLI NIGHTLY réservé au non-déterminisme — l'E2E de convergence a été
+  #      éprouvé STABLE (105 exécutions, 0 flaky — frontend/e2e/README.md), donc
+  #      BLOQUANT sur PR (retries: 0). Le repli nightly de l'exigence 4.2 n'est
+  #      activé QUE si un E2E devient instable ; ce n'est pas le cas aujourd'hui.
+  #
+  # Non-régression vérifiée (tâche 9.1) : backend 320 tests verts (245 unitaires
+  # + 75 d'intégration contre PostGIS réel, 0 skip, 0 échec) ; frontend Vitest
+  # 161 tests verts ; job backend inchangé et parallèle.
+  # ──────────────────────────────────────────────────────────────────────────
+  frontend:
+    name: Frontend (vitest + build)
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Run frontend tests (vitest)
+        run: npm run test
+
+      - name: Build frontend (vite build)
+        run: npm run build
+
+      # Budget de bundle BLOQUANT (#13) : échoue si l'app shell ou le chunk
+      # carte dépasse le seuil gzip documenté dans frontend/.size-limit.json.
+      # Doit suivre la build : les seuils portent sur les artefacts de dist/.
+      - name: Check bundle size budget (size-limit)
+        run: npm run size
+
+      # Lighthouse CI INFORMATIF (#13) : sert la build de prod via `vite preview`
+      # (throttling mobile fixe, cf. .lighthouserc.json), audite l'accueil
+      # (app shell + carte) et publie le rapport. NE BLOQUE PAS la PR
+      # (`continue-on-error: true` + seuils `warn`) : alerte sur la variance de
+      # la métrique, jamais barrière.
+      - name: Lighthouse CI (informatif, ne bloque pas la PR)
+        run: npm run lhci
+        continue-on-error: true
+
+      - name: Upload Lighthouse report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lighthouse-report
+          path: frontend/.lighthouseci
+          if-no-files-found: ignore
+          retention-days: 14
+
+      # Cache des navigateurs Playwright (L2, obligatoire) : clé = version
+      # Playwright. On hache frontend/package-lock.json, qui épingle
+      # `@playwright/test` — toute montée de version change le hash, donc la clé,
+      # et force un re-téléchargement ; sinon on restaure ~/.cache/ms-playwright.
+      - name: Cache Playwright browsers
+        id: playwright-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('frontend/package-lock.json') }}
+
+      # Installe le navigateur Chromium (+ dépendances système). En cas de cache
+      # HIT, `playwright install` est un no-op rapide (navigateur déjà présent) ;
+      # on garde `--with-deps` pour (ré)installer les libs système, non cachées.
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
+      # E2E BLOQUANT (#12) : `npm run test:e2e` → `playwright test`. Le
+      # `webServer` de playwright.config.ts construit puis sert la build de prod
+      # sur :4173 avant d'exécuter la suite. CI=true (GitHub Actions) ⇒
+      # `forbidOnly`, `reuseExistingServer:false` et reporter HTML (cf. config).
+      # Aucun `continue-on-error` : un échec fait échouer le job (chemin bloquant).
+      - name: Run E2E tests (Playwright)
+        run: npm run test:e2e
+
+      # Rapport HTML Playwright en artefact si la suite échoue, pour diagnostic.
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: frontend/playwright-report
+          if-no-files-found: ignore
+          retention-days: 14

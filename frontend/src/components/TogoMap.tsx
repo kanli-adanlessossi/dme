@@ -18,12 +18,13 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import maplibregl, {
-  type MapGeoJSONFeature,
-  type MapLayerMouseEvent,
-  type StyleSpecification,
+import type {
+  Map as MapLibreMap,
+  Marker as MapLibreMarker,
+  MapGeoJSONFeature,
+  MapLayerMouseEvent,
+  StyleSpecification,
 } from "maplibre-gl";
-import "maplibre-gl/dist/maplibre-gl.css";
 
 import {
   fetchTogoRegionsGeoJSON,
@@ -138,10 +139,11 @@ function labelElement(text: string): HTMLDivElement {
  * renvoyés pour pouvoir être retirés au démontage.
  */
 function addRegionLabels(
-  map: maplibregl.Map,
+  maplibregl: typeof import("maplibre-gl"),
+  map: MapLibreMap,
   data: RegionsFeatureCollection,
-): maplibregl.Marker[] {
-  const markers: maplibregl.Marker[] = [];
+): MapLibreMarker[] {
+  const markers: MapLibreMarker[] = [];
   for (const feature of data.features) {
     const center = geometryCentroid(feature.geometry);
     if (!center) continue;
@@ -162,9 +164,9 @@ export default function TogoMap({
 }: TogoMapProps) {
   const { t } = useTranslation();
   const containerRef = useRef<HTMLDivElement | null>(null);
-  const mapRef = useRef<maplibregl.Map | null>(null);
+  const mapRef = useRef<MapLibreMap | null>(null);
   // Marqueurs HTML des libellés de région, suivis pour retrait au démontage.
-  const labelMarkersRef = useRef<maplibregl.Marker[]>([]);
+  const labelMarkersRef = useRef<MapLibreMarker[]>([]);
   // `selectedRef` suit la sélection pour les expressions de style sans recréer
   // les handlers d'évènements à chaque rendu.
   const selectedRef = useRef<RegionCode | null>(selectedRegion);
@@ -179,9 +181,17 @@ export default function TogoMap({
 
     const controller = new AbortController();
     let disposed = false;
-    let map: maplibregl.Map | null = null;
+    let map: MapLibreMap | null = null;
 
     async function init(hostEl: HTMLDivElement): Promise<void> {
+      // MapLibre (lourd, WebGL) est chargé dynamiquement : il sort du bundle
+      // d'entrée (app shell) vers son propre chunk, et ne pèse donc pas sur le
+      // premier rendu (NFR-11, budget de bundle — voir .size-limit.json).
+      const [{ default: maplibregl }] = await Promise.all([
+        import("maplibre-gl"),
+        import("maplibre-gl/dist/maplibre-gl.css"),
+      ]);
+
       let data: RegionsFeatureCollection;
       try {
         data = await fetchTogoRegionsGeoJSON(controller.signal);
@@ -258,7 +268,7 @@ export default function TogoMap({
 
         // Libellés des régions (nom français) en marqueurs HTML : pas de
         // dépendance à un serveur de glyphs, rendu hors ligne (NFR-11).
-        labelMarkersRef.current = addRegionLabels(map, data);
+        labelMarkersRef.current = addRegionLabels(maplibregl, map, data);
 
         wireInteractions(map);
         applySelection(map, selectedRef.current);
@@ -289,7 +299,7 @@ export default function TogoMap({
   }, []);
 
   // --- Interactions : survol + clic ---------------------------------------
-  function wireInteractions(map: maplibregl.Map): void {
+  function wireInteractions(map: MapLibreMap): void {
     let hoveredCode: RegionCode | null = null;
 
     const setHover = (code: RegionCode | null, hover: boolean) => {
@@ -327,7 +337,7 @@ export default function TogoMap({
 
   // --- Application de l'état de sélection sur les features -----------------
   function applySelection(
-    map: maplibregl.Map,
+    map: MapLibreMap,
     code: RegionCode | null,
   ): void {
     const codes: RegionCode[] = [

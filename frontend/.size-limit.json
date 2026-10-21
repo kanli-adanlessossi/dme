@@ -1,0 +1,20 @@
+[
+  {
+    "name": "app shell (premier rendu, hors carte)",
+    "path": [
+      "dist/assets/index-*.js",
+      "dist/assets/index-*.css"
+    ],
+    "gzip": true,
+    "limit": "217 kB"
+  },
+  {
+    "name": "chunk carte (MapLibre, chargé à la demande)",
+    "path": [
+      "dist/assets/maplibre-gl-*.js",
+      "dist/assets/maplibre-gl-*.css"
+    ],
+    "gzip": true,
+    "limit": "250 kB"
+  }
+]

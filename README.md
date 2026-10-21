@@ -83,6 +83,7 @@ premier lancement si besoin :
 ./dme.sh stop       # arrête (données conservées)
 ./dme.sh logs       # suit les journaux
 ./dme.sh down       # arrête ET supprime les volumes (confirmation requise)
+./dme.sh test-db    # lance la suite d'intégration backend sur un PostGIS jetable
 ```
 
 ```bat
@@ -91,9 +92,17 @@ dme start
 dme stop
 dme logs
 dme down
+dme test-db
 ```
 
-Actions communes : `start` · `stop` · `restart` · `status` · `logs` · `build` · `down`.
+Actions communes : `start` · `stop` · `restart` · `status` · `logs` · `build` · `down` · `test-db`.
+
+> `test-db` est la **façon recommandée** de lancer la suite d'intégration backend
+> en local : elle provisionne un PostGIS jetable isolé (port **5433** par défaut,
+> surchargeable via `DME_TEST_DB_PORT`), exporte `TEST_DATABASE_URL`, exécute
+> `pytest`, puis supprime le conteneur même en cas d'échec. La procédure manuelle
+> `docker run` équivalente reste documentée dans
+> [`docs/E2E_VERIFICATION.md`](docs/E2E_VERIFICATION.md) (§7).
 
 Services exposés :
 

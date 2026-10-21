@@ -51,6 +51,7 @@ import {
   subscribeSession,
   type SessionState,
 } from "../lib/session";
+import { useOnline } from "../lib/useOnline";
 import CenterPinPicker from "../components/CenterPinPicker";
 
 /** Classe-outil : champ pleine largeur, cible tactile >=44px. */
@@ -163,6 +164,11 @@ export default function CenterAdmin() {
 function CenterAdminEditor({ canEdit }: { canEdit: boolean }) {
   const { t } = useTranslation();
 
+  // État de connectivité lu à la source navigateur (ADR-2) : sert à signaler
+  // a priori que l'édition du profil (endpoint REST en ligne — ADR G-6) est
+  // indisponible hors-ligne, et à désactiver l'enregistrement (ADR-1).
+  const online = useOnline();
+
   const [state, setState] = useState<LoadState>({ phase: "loading" });
   const [reloadToken, setReloadToken] = useState(0);
   const [draft, setDraft] = useState<Draft | null>(null);
@@ -236,11 +242,24 @@ function CenterAdminEditor({ canEdit }: { canEdit: boolean }) {
   }
 
   if (state.phase === "error") {
+    // Cas « ouverte déjà hors-ligne » (#4, L1) : le GET du profil a échoué.
+    // Hors-ligne, on distingue l'absence de réseau d'une vraie erreur serveur
+    // en affichant le message hors-ligne (role="status", informatif — ADR G-6 /
+    // cohérent avec la bannière 3.2) plutôt que « erreur de chargement »
+    // générique (role="alert"). Le bouton « Réessayer » est conservé dans les
+    // deux cas : hors-ligne, l'utilisateur pourra recharger au retour du réseau.
     return (
       <Shell>
-        <div className="py-8 text-center" role="alert">
-          <p className="text-sm text-red-700">
-            {t("pages.centerAdmin.loadError")}
+        <div
+          className="py-8 text-center"
+          role={online ? "alert" : "status"}
+        >
+          <p
+            className={online ? "text-sm text-red-700" : "text-sm text-amber-800"}
+          >
+            {online
+              ? t("pages.centerAdmin.loadError")
+              : t("pages.centerAdmin.offlineLoad")}
           </p>
           <button
             type="button"
@@ -315,9 +334,32 @@ function CenterAdminEditor({ canEdit }: { canEdit: boolean }) {
         </p>
       )}
 
+      {/*
+        Signalement a priori hors-ligne (ADR-1 / ADR G-6). Le profil du centre
+        passe par un endpoint REST en ligne : hors-ligne, l'édition est
+        indisponible — on le dit AVANT l'action (bouton désactivé plus bas),
+        plutôt que de laisser un bouton actif échouer au clic. La seconde phrase
+        distingue le profil des PHI (patients/visites) qui, eux, fonctionnent
+        hors-ligne (local-first), pour éviter que l'utilisateur croie à une
+        incohérence de l'application. Réservé aux admins : un rôle en lecture
+        seule n'enregistre rien, le signalement n'aurait pas de sens pour lui.
+      */}
+      {canEdit && !online && (
+        <div
+          role="status"
+          className="flex flex-col gap-1 rounded-lg border border-amber-200
+            bg-amber-50 px-3 py-2 text-sm text-amber-800"
+        >
+          <p className="font-medium">{t("pages.centerAdmin.offlineBanner")}</p>
+          <p className="text-amber-700">
+            {t("pages.centerAdmin.offlineHint")}
+          </p>
+        </div>
+      )}
+
       <form className="flex flex-col gap-4" onSubmit={onSubmit} noValidate>
         <fieldset
-          disabled={!canEdit || saving}
+          disabled={!canEdit || saving || !online}
           className="flex flex-col gap-4 border-0 p-0"
         >
           {/* Nom + région (région en lecture seule : fixée à l'intégration). */}
@@ -428,11 +470,26 @@ function CenterAdminEditor({ canEdit }: { canEdit: boolean }) {
         )}
 
         {canEdit && (
-          <button type="submit" disabled={saving} className={PRIMARY_BTN_CLASS}>
+          <button
+            type="submit"
+            disabled={saving || !online}
+            aria-describedby={!online ? "center-admin-offline-save" : undefined}
+            className={PRIMARY_BTN_CLASS}
+          >
             {saving
               ? t("pages.centerAdmin.saving")
               : t("pages.centerAdmin.save")}
           </button>
+        )}
+
+        {/* Aide associée au bouton désactivé hors-ligne (affordance honnête). */}
+        {canEdit && !online && (
+          <p
+            id="center-admin-offline-save"
+            className="text-center text-xs text-slate-500"
+          >
+            {t("pages.centerAdmin.offlineSaveHint")}
+          </p>
         )}
       </form>
     </Shell>

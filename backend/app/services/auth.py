@@ -11,11 +11,14 @@ Périmètre de la tâche 7.1 uniquement. N'implémente PAS :
 - les dépendances de cadrage par rôle (tâche 7.5).
 
 Le **flux de jeton de configuration** (tâche 7.4, `consume_setup_token`) y est en
-revanche implémenté : il valide un jeton à usage unique et expirant contre
-l'empreinte stockée, fixe `password_hash` (Argon2id) et consomme le jeton (il
-efface `setup_token_hash` / `setup_token_expires_at`), le tout de façon
-indistincte en cas d'échec (non-fuite d'existence, P3 ; la couche HTTP traduit en
-400/410, exigence 3.2).
+revanche implémenté selon le schéma **selector + verifier** (ADR-2, observation
+#8) : le jeton `"<selector>.<verifier>"` est découpé sur le premier `.` ; le
+selector NON secret indexé localise la ligne par un `SELECT` à coût constant, puis
+**une seule** vérification Argon2id valide le verifier. En cas de succès, il fixe
+`password_hash` (Argon2id) et consomme le jeton (il efface `setup_token_selector`,
+`setup_token_hash` et `setup_token_expires_at`), le tout de façon indistincte en
+cas d'échec (non-fuite d'existence, P3 ; la couche HTTP traduit en 400/410,
+exigence 3.2).
 
 Conception (design, section « Error handling » / « Échecs d'authentification ») :
 
@@ -37,7 +40,9 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.security import (
+    SETUP_TOKEN_SEPARATOR,
     hash_password,
+    hash_setup_token,
     verify_password,
     verify_setup_token,
 )
@@ -57,6 +62,24 @@ def _dummy_password_hash() -> str:
     if _DUMMY_PASSWORD_HASH is None:
         _DUMMY_PASSWORD_HASH = hash_password("timing-attack-mitigation-placeholder")
     return _DUMMY_PASSWORD_HASH
+
+
+# Empreinte factice d'un verifier de jeton de configuration, utilisée pour niveler le
+# temps de réponse quand aucune ligne ne correspond au selector présenté (ou que le
+# format du jeton est invalide) : on exécute une vérification Argon2id réelle même dans
+# ces cas, afin qu'un selector inexistant ne soit pas distinguable d'un verifier faux
+# par le temps de calcul (anti-timing, P3 — symétrique de `_dummy_password_hash`).
+_DUMMY_SETUP_TOKEN_HASH: str | None = None
+
+
+def _dummy_setup_token_hash() -> str:
+    """Empreinte factice (verifier) mémoïsée, calculée au premier usage."""
+    global _DUMMY_SETUP_TOKEN_HASH
+    if _DUMMY_SETUP_TOKEN_HASH is None:
+        _DUMMY_SETUP_TOKEN_HASH = hash_setup_token(
+            "setup-token-timing-attack-mitigation-placeholder"
+        )
+    return _DUMMY_SETUP_TOKEN_HASH
 
 
 class AuthenticationError(Exception):
@@ -169,19 +192,19 @@ async def authenticate_user(
     return verify_credentials(user, password)
 
 
-def _find_user_by_setup_token(users: list[AppUser], setup_token: str) -> AppUser | None:
-    """Retrouve, parmi des comptes candidats, celui dont l'empreinte correspond.
+def _split_setup_token(setup_token: str) -> tuple[str, str] | None:
+    """Découpe un jeton `"<selector>.<verifier>"` sur le PREMIER `.` (ADR-2).
 
-    Le jeton de configuration n'est pas un identifiant lisible : on ne peut pas
-    l'indexer en base (seule son empreinte Argon2id, à sel aléatoire, est stockée).
-    On vérifie donc le jeton présenté contre l'empreinte de chaque candidat ayant
-    un `setup_token_hash` non consommé. `verify_setup_token` ne lève jamais : un
-    hash absent/corrompu échoue proprement.
+    Renvoie `(selector, verifier)` si le format est valide, `None` sinon. Le `.` est
+    un séparateur non ambigu : `token_urlsafe` n'en produit jamais (alphabet
+    base64url). Le découpage sur le premier `.` reste robuste même si un `.` figurait
+    côté verifier (`selector` = avant, `verifier` = tout le reste). Un jeton sans `.`,
+    ou avec selector/verifier vide, est un format invalide (→ `None`).
     """
-    for user in users:
-        if verify_setup_token(setup_token, user.setup_token_hash):
-            return user
-    return None
+    selector, separator, verifier = setup_token.partition(SETUP_TOKEN_SEPARATOR)
+    if not separator or not selector or not verifier:
+        return None
+    return selector, verifier
 
 
 async def consume_setup_token(
@@ -192,42 +215,66 @@ async def consume_setup_token(
 ) -> AppUser:
     """Établit le mot de passe d'un compte via son jeton de configuration (REQ-3.2).
 
-    Vérifie le jeton présenté contre l'empreinte stockée (`setup_token_hash`),
-    contrôle qu'il n'est ni expiré (`setup_token_expires_at` dans le futur) ni déjà
-    consommé (empreinte présente), puis — en cas de succès — fixe `password_hash`
-    (Argon2id) et **consomme** le jeton en effaçant `setup_token_hash` et
-    `setup_token_expires_at` (usage unique). Ne valide PAS la transaction : le
-    `commit` relève de l'appelant (routeur), qui journalise aussi l'événement.
+    Schéma **selector + verifier** (ADR-2, observation #8) : le jeton présenté a la
+    forme `"<selector>.<verifier>"`. Le selector NON secret, indexé, localise la ligne
+    par un `SELECT` à coût constant ; le verifier est validé par **une seule**
+    vérification Argon2id (lookup à coût constant quel que soit le nombre de comptes,
+    P4/NFR-2). En cas de succès — jeton non expiré, compte actif, verifier valide — on
+    fixe `password_hash` (Argon2id) et on **consomme** le jeton en effaçant
+    `setup_token_selector`, `setup_token_hash` et `setup_token_expires_at` (usage
+    unique). Ne valide PAS la transaction : le `commit` relève de l'appelant (routeur),
+    qui journalise aussi l'événement.
 
-    Reste **indistinct** en cas d'échec (non-fuite d'existence, P3) : jeton
-    inconnu, expiré, déjà consommé, ou compte inactif lèvent tous la même
-    `SetupTokenError`. La couche HTTP la traduit en 400/410 générique.
+    Reste **indistinct** en cas d'échec (non-fuite d'existence, P3) : format invalide,
+    selector inconnu, jeton expiré, déjà consommé, verifier faux, ou compte inactif
+    lèvent tous la même `SetupTokenError`. La couche HTTP la traduit en 400/410
+    générique. **Anti-timing** : quand le format est invalide ou qu'aucune ligne ne
+    correspond au selector, on exécute malgré tout une vérification Argon2id factice
+    (comme `authenticate_user`) pour niveler le temps de réponse, de sorte qu'un
+    selector inexistant ne soit pas distinguable d'un verifier faux par le temps.
 
     Lève :
         SetupTokenError: dans tous les cas d'échec, de façon indistincte.
     """
-    # Ne considérer que les comptes avec un jeton encore présent (non consommé).
-    result = await session.execute(
-        select(AppUser).where(AppUser.setup_token_hash.is_not(None))
-    )
-    candidates = list(result.scalars().all())
-
-    user = _find_user_by_setup_token(candidates, setup_token)
-    if user is None:
-        # Jeton inconnu ou déjà consommé : échec indistinct.
+    parts = _split_setup_token(setup_token)
+    if parts is None:
+        # Format invalide (pas de `.`, selector ou verifier vide) : Argon2 factice
+        # pour niveler le temps, puis échec générique (anti-timing, P3).
+        verify_setup_token("", _dummy_setup_token_hash())
         raise SetupTokenError
+    selector, verifier = parts
+
+    # Lookup à coût constant par le selector indexé (index UNIQUE partiel, 0011) :
+    # au plus une ligne. Ne considérer que les jetons encore présents (non consommés).
+    result = await session.execute(
+        select(AppUser).where(
+            AppUser.setup_token_selector == selector,
+            AppUser.setup_token_hash.is_not(None),
+        )
+    )
+    user = result.scalar_one_or_none()
+
+    if user is None:
+        # Selector inconnu (ou jeton déjà consommé) : Argon2 factice puis échec
+        # indistinct (anti-timing, P3 — symétrique de `authenticate_user`).
+        verify_setup_token(verifier, _dummy_setup_token_hash())
+        raise SetupTokenError
+
+    # UNE SEULE vérification Argon2id, sur la ligne trouvée par le selector.
+    verifier_ok = verify_setup_token(verifier, user.setup_token_hash)
 
     # Expiration : un jeton sans échéance, ou dont l'échéance est passée, est rejeté.
     expires_at = user.setup_token_expires_at
-    if expires_at is None or expires_at <= datetime.now(UTC):
-        raise SetupTokenError
+    expired = expires_at is None or expires_at <= datetime.now(UTC)
 
-    if not user.is_active:
-        # Compte désactivé : même erreur générique (pas de révélation d'état).
+    # Tout échec (verifier faux, expiré, compte inactif) → même erreur générique,
+    # sans consommer le jeton ni révéler la cause (P3).
+    if not verifier_ok or expired or not user.is_active:
         raise SetupTokenError
 
     # Succès : fixe l'empreinte du mot de passe et CONSOMME le jeton (usage unique).
     user.password_hash = hash_password(password)
+    user.setup_token_selector = None
     user.setup_token_hash = None
     user.setup_token_expires_at = None
     return user

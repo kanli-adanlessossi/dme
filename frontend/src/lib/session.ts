@@ -107,6 +107,50 @@ type SessionListener = (state: SessionState) => void;
 // -------------------------------------------------------------------------
 // Persistance : UNIQUEMENT ce qui est sûr (jetons + sel), jamais la clé/mot de passe
 // -------------------------------------------------------------------------
+//
+// ADR #9 — Stockage des jetons d'authentification (documentation faisant foi)
+// ---------------------------------------------------------------------------
+// Décision : **conserver `localStorage`** (clé `dme.session`) pour les jetons
+// `access` + `refresh`, et investir la défense anti-XSS **à la source** plutôt que
+// de déplacer le jeton. Résumé ; l'ADR complet (tableau comparatif, justification
+// détaillée) vit dans `.kiro/specs/local-crypto-hardening/design.md`.
+//
+// Contexte. Connectivité intermittente (Togo) ⇒ NFR-7 (travail hors-ligne après
+// rechargement) est prioritaire. Menace principale assumée : perte/vol du poste,
+// déjà couverte — le jeton seul ne déverrouille PAS les PHI, car la clé de
+// chiffrement n'est jamais persistée. Menace résiduelle : vol de jeton par XSS.
+//
+// Options évaluées et **rejetées** :
+//  - (b) **Jetons en mémoire seule** : forte résistance au vol de jeton au repos,
+//    mais casse NFR-7 — tout rechargement (veille mobile, éviction d'onglet) perd
+//    le jeton ; `login` exige le réseau ⇒ soignant bloqué hors-ligne.
+//  - (c) **Cookie `httpOnly`** : invisible au JS, mais le refresh passe par un
+//    chemin en ligne (`/api/auth/refresh`), le mode Bearer lu par le `TokenProvider`
+//    devient inopérant hors-ligne (NFR-7 dégradé), introduit une surface CSRF et
+//    exige un changement de contrat serveur `/api/auth/*`.
+//  - **Variante hybride** (refresh en cookie `httpOnly` utilisé uniquement en ligne,
+//    access en `localStorage`/mémoire pour l'hors-ligne) : fermerait le vol XSS du
+//    refresh tout en préservant NFR-7 pour l'access, mais écartée en v1 — exige un
+//    changement de contrat serveur + mitigation CSRF pour un bénéfice partiel
+//    (l'access volé via XSS reste exploitable jusqu'à son expiration). À réévaluer
+//    si le profil de menace évolue.
+//
+// Justification du choix (a). (b) et (c) achètent une résistance au vol de jeton
+// **au repos** au prix d'une dégradation de NFR-7, inacceptable en clinique à
+// connectivité intermittente où le rechargement hors-ligne est un cas nominal.
+// La mitigation concrète livrée en contrepartie est portée par la défense à la
+// source : CSP sans joker (`frontend/nginx.conf`), `style-src` durci/documenté, et
+// le test anti-régression « 0 sink JS » (`no-dangerous-sinks.test.ts`), le rendu
+// React auto-échappant les valeurs interpolées.
+//
+// ⚠️ LIMITE EXPLICITE (exigence 2.7) — à NE JAMAIS sur-promettre.
+// Conserver (ou déplacer, ou durcir) le stockage des jetons **ne protège PAS contre
+// un XSS ACTIF** exécuté pendant une session déverrouillée : un script injecté peut
+// lire la clé de chiffrement **en mémoire**, appeler directement le `TokenProvider`
+// pour obtenir un access token valide, ou exfiltrer les **PHI déchiffrées affichées
+// à l'écran** — quel que soit l'emplacement de stockage du jeton. Cette mesure ne
+// « résout » donc PAS le XSS. La seule défense de fond est la **prévention de
+// l'injection** (CSP, `style-src` durci, 0 sink JS, auto-échappement React).
 
 const SESSION_KEY = "dme.session";
 const SALT_PREFIX = "dme.kdf.salt."; // + email : sel PBKDF2 par utilisateur (non secret).
@@ -153,9 +197,34 @@ function clearPersisted(): void {
 // utilisateur (persisté en clair : un sel n'est pas un secret). Le résultat est
 // encodé en hexadécimal et passé à `initDb(cle)` comme mot de passe de chiffrement
 // RxDB. Ni la clé ni le mot de passe ne sont persistés.
+//
+// ⚠️ CONTRAT DE TEST (observation #10, exigence 1) — point de vérité unique.
+// Les constantes KDF ci-dessous sont **exportées** afin que le test de verrouillage
+// anti-régression (`crypto-params.test.ts`) lise la valeur réelle plutôt qu'un
+// littéral recopié. Elles sont sous contrat : NE PAS **abaisser** un paramètre
+// (itérations, longueur de sel, longueur de clé) ni changer l'algorithme/hash sans
+// mettre à jour ce test. Les valeurs actuelles sont conformes à OWASP Password
+// Storage Cheat Sheet (révision ≥ 2023 : PBKDF2-SHA256 ≥ 210 000 itérations) et ne
+// doivent PAS être modifiées par cette spec (confirmation, pas correction).
+//
+// ⚠️ MIGRATION CRYPTOGRAPHIQUE (durcissement futur) — la clé est **dérivée** de ces
+// paramètres : tout relèvement futur (itérations, sel, longueur de clé) produit une
+// clé différente qui ne déverrouillera plus une base RxDB chiffrée avec l'ancienne
+// clé → PHI locales illisibles. Un tel durcissement DOIT s'accompagner d'une
+// stratégie choisie (re-dérivation + re-chiffrement au login, versionnage des
+// paramètres à côté du sel, ou perte assumée des données non synchronisées) pour
+// éviter une perte de données silencieuse. La v1 ne change AUCUN paramètre.
 
-const PBKDF2_ITERATIONS = 210_000; // Recommandation OWASP PBKDF2-SHA256 (2023+).
-const DERIVED_KEY_BITS = 256;
+/** Itérations PBKDF2-SHA256 (OWASP 2023+ : ≥ 210 000). Sous contrat de test. */
+export const PBKDF2_ITERATIONS = 210_000;
+/** Longueur du sel par utilisateur, en octets (≥ 16). Sous contrat de test. */
+export const SALT_LENGTH_BYTES = 16;
+/** Longueur de la clé dérivée, en bits (256 ⇒ 32 octets). Sous contrat de test. */
+export const DERIVED_KEY_BITS = 256;
+/** Algorithme de dérivation de clé. Sous contrat de test (ne pas changer). */
+export const KDF_ALGORITHM = "PBKDF2" as const;
+/** Fonction de hachage du KDF. Sous contrat de test (ne pas changer). */
+export const KDF_HASH = "SHA-256" as const;
 
 const textEncoder = new TextEncoder();
 
@@ -168,7 +237,7 @@ function getOrCreateSalt(email: string): Uint8Array {
   } catch {
     /* ignore : on régénère un sel éphémère ci-dessous. */
   }
-  const salt = new Uint8Array(16);
+  const salt = new Uint8Array(SALT_LENGTH_BYTES);
   crypto.getRandomValues(salt);
   try {
     localStorage.setItem(storageKey, bytesToHex(salt));
@@ -204,16 +273,16 @@ async function deriveEncryptionKey(
   const baseKey = await crypto.subtle.importKey(
     "raw",
     textEncoder.encode(password),
-    "PBKDF2",
+    KDF_ALGORITHM,
     false,
     ["deriveBits"],
   );
   const bits = await crypto.subtle.deriveBits(
     {
-      name: "PBKDF2",
+      name: KDF_ALGORITHM,
       salt: salt as unknown as BufferSource,
       iterations: PBKDF2_ITERATIONS,
-      hash: "SHA-256",
+      hash: KDF_HASH,
     },
     baseKey,
     DERIVED_KEY_BITS,
