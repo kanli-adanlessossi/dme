@@ -95,6 +95,12 @@ const fr = {
           + "du centre peut le modifier.",
         loading: "Chargement du profil…",
         loadError: "Impossible de charger le profil de votre centre.",
+        // Cas « ouverte déjà hors-ligne » (#4, L1) : le GET du profil échoue
+        // faute de réseau ; on distingue cette absence de connexion d'une vraie
+        // erreur serveur (loadError), affichée à la place de celle-ci.
+        offlineLoad:
+          "Vous êtes hors ligne. Une connexion Internet est nécessaire pour "
+          + "consulter le profil de votre centre.",
         notFound:
           "Aucun profil de centre n'est associé à votre compte pour le moment.",
         retry: "Réessayer",
@@ -119,6 +125,25 @@ const fr = {
         save: "Enregistrer",
         saving: "Enregistrement…",
         saved: "Profil enregistré.",
+        // Signalement a priori hors-ligne du profil (#4, ADR-1 / ADR G-6) :
+        // le profil du centre est géré via un endpoint REST en ligne, donc non
+        // modifiable hors-ligne. `offlineBanner` annonce l'indisponibilité,
+        // `offlineHint` distingue le profil (en ligne) des PHI patients/visites
+        // (local-first, utilisables hors-ligne), et `offlineSaveHint` justifie
+        // le bouton « Enregistrer » désactivé. Voir aussi `offlineLoad` plus
+        // haut (chargement déjà hors-ligne) et `errors.offline` (filet si la
+        // connexion tombe pendant l'enregistrement).
+        offlineBanner:
+          "Vous êtes hors ligne. La modification du profil de votre centre "
+          + "nécessite une connexion Internet.",
+        offlineHint:
+          "Les patients et les visites restent utilisables hors ligne : "
+          + "ils se synchronisent dès le retour du réseau. Le profil du centre, "
+          + "lui, est géré en ligne ; il ne peut donc pas être modifié tant que "
+          + "vous êtes hors ligne.",
+        offlineSaveHint:
+          "Enregistrement indisponible hors ligne. Reconnectez-vous à Internet "
+          + "pour enregistrer vos modifications.",
         // Carte du sélecteur d'épingle.
         map: {
           ariaLabel: "Carte pour placer l'épingle du centre (Togo)",

@@ -1,0 +1,151 @@
+{
+  "pbtResults": {},
+  "executionHistory": {
+    "1. [#6] Documenter la contrainte mono-instance du curseur de sync": [
+      {
+        "executionId": "f80e52e1-e52a-49d6-970d-2bf3ac2454cb",
+        "chatSessionId": "sess_28ad8268-2144-453f-8a4a-23897e841ade",
+        "timestamp": 1792605035723
+      },
+      {
+        "executionId": "f80e52e1-e52a-49d6-970d-2bf3ac2454cb",
+        "chatSessionId": "sess_28ad8268-2144-453f-8a4a-23897e841ade",
+        "timestamp": 1792605103551
+      }
+    ],
+    "1.1 Dans `docs/ARCHITECTURE.md`, section `## Synchronisation`, ajouter un": [
+      {
+        "executionId": "9a9871cf-b9d7-4f11-8981-1ebda4d296a9",
+        "chatSessionId": "sess_608eb3ec-b2bc-49a8-8546-1d9eb8653943",
+        "timestamp": 1792605153484
+      },
+      {
+        "executionId": "9a9871cf-b9d7-4f11-8981-1ebda4d296a9",
+        "chatSessionId": "sess_608eb3ec-b2bc-49a8-8546-1d9eb8653943",
+        "timestamp": 1792605205027
+      }
+    ],
+    "2. [#3] Documenter la fenêtre de révocation hors-ligne de 8 h": [
+      {
+        "executionId": "460be0db-6d52-4f27-aef5-7f6e4808a4a3",
+        "chatSessionId": "sess_c49b621a-66f0-4ea4-90cf-8f12102d62dd",
+        "timestamp": 1792605231639
+      },
+      {
+        "executionId": "460be0db-6d52-4f27-aef5-7f6e4808a4a3",
+        "chatSessionId": "sess_c49b621a-66f0-4ea4-90cf-8f12102d62dd",
+        "timestamp": 1792605300165
+      }
+    ],
+    "2.1 Dans `docs/ARCHITECTURE.md`, section `## Données de santé : les": [
+      {
+        "executionId": "cee9f625-0600-423c-8cdb-1f0cb2ebb44a",
+        "chatSessionId": "sess_f6f78d1c-b6bf-4ba9-9bbe-69b11ad8622f",
+        "timestamp": 1792605329083
+      },
+      {
+        "executionId": "cee9f625-0600-423c-8cdb-1f0cb2ebb44a",
+        "chatSessionId": "sess_f6f78d1c-b6bf-4ba9-9bbe-69b11ad8622f",
+        "timestamp": 1792605384279
+      }
+    ],
+    "3.1 Créer un hook `useOnline()` (`frontend/src/lib/useOnline.ts`) : lit": [
+      {
+        "executionId": "85704ddd-5076-4e5b-bd3c-390b6f1638a1",
+        "chatSessionId": "sess_cf269b01-2b8d-42b5-9582-0c816fe3fe9e",
+        "timestamp": 1792605422846
+      },
+      {
+        "executionId": "85704ddd-5076-4e5b-bd3c-390b6f1638a1",
+        "chatSessionId": "sess_cf269b01-2b8d-42b5-9582-0c816fe3fe9e",
+        "timestamp": 1792605528973
+      }
+    ],
+    "3.2 Hors-ligne (`!online`) : afficher une **bannière** (`role=\"status\"`,": [
+      {
+        "executionId": "85704ddd-5076-4e5b-bd3c-390b6f1638a1",
+        "chatSessionId": "sess_cf269b01-2b8d-42b5-9582-0c816fe3fe9e",
+        "timestamp": 1792605533033
+      },
+      {
+        "executionId": "85704ddd-5076-4e5b-bd3c-390b6f1638a1",
+        "chatSessionId": "sess_cf269b01-2b8d-42b5-9582-0c816fe3fe9e",
+        "timestamp": 1792605657045
+      }
+    ],
+    "3.3 **Cas « ouvert déjà hors-ligne » (L1)** : quand `!online` et que le": [
+      {
+        "executionId": "85704ddd-5076-4e5b-bd3c-390b6f1638a1",
+        "chatSessionId": "sess_cf269b01-2b8d-42b5-9582-0c816fe3fe9e",
+        "timestamp": 1792605660794
+      },
+      {
+        "executionId": "85704ddd-5076-4e5b-bd3c-390b6f1638a1",
+        "chatSessionId": "sess_cf269b01-2b8d-42b5-9582-0c816fe3fe9e",
+        "timestamp": 1792605733591
+      }
+    ],
+    "3.4 En ligne : comportement **inchangé** (chargement, édition, enregistrement).": [
+      {
+        "executionId": "85704ddd-5076-4e5b-bd3c-390b6f1638a1",
+        "chatSessionId": "sess_cf269b01-2b8d-42b5-9582-0c816fe3fe9e",
+        "timestamp": 1792605737894
+      },
+      {
+        "executionId": "85704ddd-5076-4e5b-bd3c-390b6f1638a1",
+        "chatSessionId": "sess_cf269b01-2b8d-42b5-9582-0c816fe3fe9e",
+        "timestamp": 1792605812657
+      }
+    ],
+    "3.5 Ajouter les clés i18n nécessaires (p. ex. `pages.centerAdmin.offlineBanner`)": [
+      {
+        "executionId": "85704ddd-5076-4e5b-bd3c-390b6f1638a1",
+        "chatSessionId": "sess_cf269b01-2b8d-42b5-9582-0c816fe3fe9e",
+        "timestamp": 1792605816626
+      },
+      {
+        "executionId": "85704ddd-5076-4e5b-bd3c-390b6f1638a1",
+        "chatSessionId": "sess_cf269b01-2b8d-42b5-9582-0c816fe3fe9e",
+        "timestamp": 1792605902403
+      }
+    ],
+    "3. [#4] Signalement UX a priori hors-ligne dans l'éditeur de profil": [
+      {
+        "executionId": "85704ddd-5076-4e5b-bd3c-390b6f1638a1",
+        "chatSessionId": "sess_cf269b01-2b8d-42b5-9582-0c816fe3fe9e",
+        "timestamp": 1792605902488
+      }
+    ],
+    "4.1 Étendre `frontend/src/pages/CenterAdmin.test.ts`. Technique (M1, grâce à": [
+      {
+        "executionId": "5c778d61-bd88-457f-82bb-32fe49dff38d",
+        "chatSessionId": "sess_3b77f785-07a9-4590-b3f5-db9721fbbaa0",
+        "timestamp": 1792605944382
+      },
+      {
+        "executionId": "5c778d61-bd88-457f-82bb-32fe49dff38d",
+        "chatSessionId": "sess_3b77f785-07a9-4590-b3f5-db9721fbbaa0",
+        "timestamp": 1792606052539
+      }
+    ],
+    "4.2 Exécuter la suite frontend complète (`npm run test -- --run`) → verte, y": [
+      {
+        "executionId": "5c778d61-bd88-457f-82bb-32fe49dff38d",
+        "chatSessionId": "sess_3b77f785-07a9-4590-b3f5-db9721fbbaa0",
+        "timestamp": 1792606055964
+      },
+      {
+        "executionId": "5c778d61-bd88-457f-82bb-32fe49dff38d",
+        "chatSessionId": "sess_3b77f785-07a9-4590-b3f5-db9721fbbaa0",
+        "timestamp": 1792606106535
+      }
+    ],
+    "4. [#4] Tests et non-régression": [
+      {
+        "executionId": "5c778d61-bd88-457f-82bb-32fe49dff38d",
+        "chatSessionId": "sess_3b77f785-07a9-4590-b3f5-db9721fbbaa0",
+        "timestamp": 1792606106601
+      }
+    ]
+  }
+}
