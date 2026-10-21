@@ -10,6 +10,18 @@ Cycle de vie des tenants (exigence 3), réservé au `platform_admin` et audité
 - `PATCH /api/admin/tenants/{id}` — active/désactive un tenant ; la désactivation
   conserve les données (NFR-4), masque le tenant du public (P8) et refuse la
   connexion de ses membres. (3.4)
+- `POST /api/admin/tenants/{id}/export` — exporte l'intégralité des données d'un
+  tenant (profil, comptes sans secret, PHI, services, sync) ; audité
+  (`tenant.export`) dans la **même transaction** (fail-closed, NFR-3). (spec
+  `tenant-data-rights`, exigence 1)
+- `POST /api/admin/tenants/{id}/erase` — efface définitivement les données d'un
+  tenant **désactivé** (opération destructive d'exception, ADR-1). L'audit
+  d'intention (`tenant.erase`) est écrit **AVANT l'acte, dans une transaction
+  séparée committée d'abord** (`record_audit_standalone`) : la trace de la
+  tentative survit même si l'effacement échoue (design, « Error Handling »).
+  L'effacement proprement dit s'exécute ensuite dans sa propre transaction.
+  Garde-fous : 409 si le tenant est encore actif, 404 s'il est inconnu. (spec
+  `tenant-data-rights`, exigence 2)
 
 Chemin de code dédié et explicitement cadré (design, « Conception multi-tenant »)
 plutôt que le contexte RLS ad hoc : ces endpoints n'empruntent PAS la dépendance
@@ -30,7 +42,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.audit import build_event, record_audit
+from app.core.audit import build_event, record_audit, record_audit_standalone
 from app.core.db import get_session
 from app.core.deps import AuthPrincipal, require_roles
 from app.schemas.admin import (
@@ -42,7 +54,13 @@ from app.schemas.admin import (
     TenantUpdateRequest,
 )
 from app.schemas.auth import Role
-from app.schemas.common import RESPONSES_403, RESPONSES_AUTHED, ErrorResponse
+from app.schemas.common import (
+    RESPONSES_403,
+    RESPONSES_404,
+    RESPONSES_AUTHED,
+    ErrorResponse,
+)
+from app.schemas.tenant_data import EraseReport, TenantExport
 from app.services.admin import (
     CoordinatesOutsideTogoError,
     EmailAlreadyExistsError,
@@ -51,6 +69,14 @@ from app.services.admin import (
     create_tenant_onboarding,
     list_tenants,
     set_tenant_status,
+)
+from app.services.tenant_data import (
+    TenantNotFoundError as ExportTenantNotFoundError,
+)
+from app.services.tenant_data import (
+    TenantStillActiveError,
+    erase_tenant,
+    export_tenant,
 )
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
@@ -249,3 +275,141 @@ async def update_tenant(
 
     region_code = await _region_code_for_tenant(session, tenant.region_id)
     return _tenant_to_response(tenant, region_code)
+
+
+@router.post(
+    "/tenants/{tenant_id}/export",
+    response_model=TenantExport,
+    responses={**RESPONSES_403, **RESPONSES_404},
+    summary="Exporte l'intégralité des données d'un tenant (platform_admin)",
+)
+async def export_tenant_data(
+    tenant_id: UUID,
+    request: Request,
+    principal: AuthPrincipal = Depends(_require_platform_admin),
+    session: AsyncSession = Depends(get_session),
+) -> TenantExport:
+    """Exporte toutes les données d'un tenant, sans secret (exigence 1) ; audité.
+
+    Opération transversale réservée au `platform_admin` (403 sinon). Produit un
+    `TenantExport` — JSON structuré par entité, cadré au tenant demandé et
+    **sans aucun secret** (ni `password_hash`, ni `setup_token_hash`, ni jeton de
+    refresh) — via `export_tenant`, qui pose le contexte RLS sur le tenant cible
+    et lit sur un instantané cohérent.
+
+    L'export est **audité dans la même transaction** (`tenant.export`, acteur =
+    platform_admin, tenant cible) : l'écriture d'audit précède le `commit`, de
+    sorte qu'un échec d'audit annule l'opération (fail-closed, NFR-3). La session
+    n'a encore effectué aucune lecture, ce qui permet à `export_tenant` de poser
+    l'isolation `REPEATABLE READ` en premier.
+
+    Un tenant inconnu → 404, sans effet de bord.
+    """
+    try:
+        export = await export_tenant(session, tenant_id)
+    except ExportTenantNotFoundError:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Tenant introuvable.",
+        ) from None
+
+    # Audit de l'export (acteur = platform_admin ; tenant = tenant cible), écrit
+    # dans la MÊME transaction que la lecture d'export (fail-closed, NFR-3).
+    await record_audit(
+        session,
+        build_event(
+            request,
+            action="tenant.export",
+            tenant_id=tenant_id,
+            actor_user_id=principal.sub,
+            entity="tenant",
+            entity_id=tenant_id,
+        ),
+    )
+    await session.commit()
+
+    return export
+
+
+@router.post(
+    "/tenants/{tenant_id}/erase",
+    response_model=EraseReport,
+    responses={
+        **RESPONSES_403,
+        **RESPONSES_404,
+        409: {
+            "model": ErrorResponse,
+            "description": "Tenant encore actif : désactivation préalable requise.",
+        },
+    },
+    summary="Efface définitivement les données d'un tenant désactivé (platform_admin)",
+)
+async def erase_tenant_data(
+    tenant_id: UUID,
+    request: Request,
+    principal: AuthPrincipal = Depends(_require_platform_admin),
+    session: AsyncSession = Depends(get_session),
+) -> EraseReport:
+    """Efface définitivement les données d'un tenant, audité AVANT l'acte (exigence 2).
+
+    Opération **destructive d'exception** réservée au `platform_admin` (403 sinon),
+    distincte du soft-delete du CRUD normal (ADR-1). Elle supprime physiquement les
+    PHI et les données du tenant puis son identité, en préservant intégralement
+    l'`audit_log` (append-only, NFR-3 — l'audit n'a aucune FK vers `tenant`).
+
+    Ordre des opérations (décision « Error Handling » du design) :
+
+    1. **Audit d'intention écrit AVANT l'acte, dans une transaction séparée
+       committée d'abord** (`record_audit_standalone`, action `tenant.erase`,
+       acteur = platform_admin, tenant cible). La trace « tentative d'effacement »
+       survit donc même si l'effacement échoue ensuite — on ne peut pas effacer un
+       tenant sans en laisser une trace indélébile.
+    2. **Effacement dans sa propre transaction** (`erase_tenant`) : tous les DELETE
+       cadrés RLS au tenant cible, dans l'ordre imposé par les FK RESTRICT, puis
+       `commit`. Une erreur en cours annule l'ensemble des DELETE (atomicité), mais
+       l'audit d'intention déjà committé subsiste.
+
+    Garde-fous (décisions tranchées, ADR-1) :
+
+    - **Tenant encore actif → 409** (`TenantStillActiveError`) : la désactivation
+      préalable (`status='inactive'`) est obligatoire (exigence 2.6). Aucun export
+      préalable n'est exigé ni généré par cet endpoint (exigence 2 ; l'export reste
+      une opération découplée et optionnelle).
+    - **Tenant inconnu → 404** (`TenantNotFoundError`), sans effet de bord sur les
+      données (exigence 2.7). La trace d'intention reste néanmoins journalisée.
+    """
+    # (1) Audit d'intention AVANT l'acte, dans une transaction SÉPARÉE committée
+    # d'abord : `record_audit_standalone` ouvre sa propre session/transaction,
+    # insère la ligne `tenant.erase`, puis valide. La trace survit même si
+    # l'effacement échoue (design, « Error Handling » ; NFR-3). On n'enveloppe
+    # jamais cet appel dans un try/except qui masquerait l'échec (fail-closed).
+    await record_audit_standalone(
+        build_event(
+            request,
+            action="tenant.erase",
+            tenant_id=tenant_id,
+            actor_user_id=principal.sub,
+            entity="tenant",
+            entity_id=tenant_id,
+        ),
+    )
+
+    # (2) Effacement dans sa PROPRE transaction (celle de la session de requête).
+    # Les garde-fous sont portés par le service : 409 si le tenant est actif, 404
+    # s'il est inconnu — levés AVANT toute suppression, donc sans effet de bord.
+    try:
+        report = await erase_tenant(session, tenant_id)
+    except TenantStillActiveError:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Le tenant doit d'abord être désactivé avant d'être effacé.",
+        ) from None
+    except ExportTenantNotFoundError:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Tenant introuvable.",
+        ) from None
+
+    await session.commit()
+
+    return report

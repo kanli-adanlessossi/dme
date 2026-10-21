@@ -1,0 +1,239 @@
+{
+  "pbtResults": {},
+  "executionHistory": {
+    "1. [#8] Migration : colonne `setup_token_selector`": [
+      {
+        "executionId": "9129a0e5-040a-48f7-9f0c-9b5595066f72",
+        "chatSessionId": "sess_bc6e39cc-b722-4fb3-8680-0020f2eb6e2e",
+        "timestamp": 1792584363147
+      },
+      {
+        "executionId": "9129a0e5-040a-48f7-9f0c-9b5595066f72",
+        "chatSessionId": "sess_bc6e39cc-b722-4fb3-8680-0020f2eb6e2e",
+        "timestamp": 1792584568024
+      }
+    ],
+    "1.1 Créer une migration Alembic ajoutant `app_user.setup_token_selector text`": [
+      {
+        "executionId": "650feb99-856c-4c26-b1c5-bb29243db9b6",
+        "chatSessionId": "sess_bc6e39cc-b722-4fb3-8680-0020f2eb6e2e",
+        "timestamp": 1792584614503
+      },
+      {
+        "executionId": "650feb99-856c-4c26-b1c5-bb29243db9b6",
+        "chatSessionId": "sess_bc6e39cc-b722-4fb3-8680-0020f2eb6e2e",
+        "timestamp": 1792584617609
+      }
+    ],
+    "2. [#8] Lookup setup-token selector + verifier": [
+      {
+        "executionId": "718d1915-264f-446b-97f9-d4e6d3bdbea0",
+        "chatSessionId": "sess_e6e306d1-d3a1-4123-bfc6-80e3ce4ce50b",
+        "timestamp": 1792584646079
+      },
+      {
+        "executionId": "718d1915-264f-446b-97f9-d4e6d3bdbea0",
+        "chatSessionId": "sess_e6e306d1-d3a1-4123-bfc6-80e3ce4ce50b",
+        "timestamp": 1792585122541
+      }
+    ],
+    "2.1 Dans `backend/app/core/security.py` : helper générant un token": [
+      {
+        "executionId": "525210b2-5c45-4a4f-a691-9b87b904523d",
+        "chatSessionId": "sess_e6e306d1-d3a1-4123-bfc6-80e3ce4ce50b",
+        "timestamp": 1792585158227
+      },
+      {
+        "executionId": "525210b2-5c45-4a4f-a691-9b87b904523d",
+        "chatSessionId": "sess_e6e306d1-d3a1-4123-bfc6-80e3ce4ce50b",
+        "timestamp": 1792585161326
+      }
+    ],
+    "2.2 Dans `backend/app/services/auth.py` : réécrire `consume_setup_token` —": [
+      {
+        "executionId": "525210b2-5c45-4a4f-a691-9b87b904523d",
+        "chatSessionId": "sess_e6e306d1-d3a1-4123-bfc6-80e3ce4ce50b",
+        "timestamp": 1792585164582
+      },
+      {
+        "executionId": "525210b2-5c45-4a4f-a691-9b87b904523d",
+        "chatSessionId": "sess_e6e306d1-d3a1-4123-bfc6-80e3ce4ce50b",
+        "timestamp": 1792585167795
+      }
+    ],
+    "2.3 Dans `backend/app/services/admin.py` : `create_tenant_onboarding` émet": [
+      {
+        "executionId": "525210b2-5c45-4a4f-a691-9b87b904523d",
+        "chatSessionId": "sess_e6e306d1-d3a1-4123-bfc6-80e3ce4ce50b",
+        "timestamp": 1792585170912
+      },
+      {
+        "executionId": "525210b2-5c45-4a4f-a691-9b87b904523d",
+        "chatSessionId": "sess_e6e306d1-d3a1-4123-bfc6-80e3ce4ce50b",
+        "timestamp": 1792585174242
+      }
+    ],
+    "3. [#8] Tests du nouveau lookup": [
+      {
+        "executionId": "8acefd0d-6d6f-44d1-b74a-f6c92bdf9629",
+        "chatSessionId": "sess_57d3732d-ef43-4ea7-a45c-6c263a2c2dca",
+        "timestamp": 1792585198716
+      },
+      {
+        "executionId": "8acefd0d-6d6f-44d1-b74a-f6c92bdf9629",
+        "chatSessionId": "sess_57d3732d-ef43-4ea7-a45c-6c263a2c2dca",
+        "timestamp": 1792585481263
+      }
+    ],
+    "4. [#2] Service d'export de tenant": [
+      {
+        "executionId": "5075d305-15f6-4c91-8b0a-a04647e22fe1",
+        "chatSessionId": "sess_57d3732d-ef43-4ea7-a45c-6c263a2c2dca",
+        "timestamp": 1792585536473
+      },
+      {
+        "executionId": "5075d305-15f6-4c91-8b0a-a04647e22fe1",
+        "chatSessionId": "sess_57d3732d-ef43-4ea7-a45c-6c263a2c2dca",
+        "timestamp": 1792585874583
+      }
+    ],
+    "4.1 Créer `backend/app/services/tenant_data.py` avec `export_tenant(session,": [
+      {
+        "executionId": "0ff3bcf2-2ffe-4d6a-a430-cad546cdc4f4",
+        "chatSessionId": "sess_57d3732d-ef43-4ea7-a45c-6c263a2c2dca",
+        "timestamp": 1792586008505
+      }
+    ],
+    "4.2 Schéma Pydantic `TenantExport` documenté et stable (JSON structuré par": [
+      {
+        "executionId": "0ff3bcf2-2ffe-4d6a-a430-cad546cdc4f4",
+        "chatSessionId": "sess_57d3732d-ef43-4ea7-a45c-6c263a2c2dca",
+        "timestamp": 1792586009532
+      }
+    ],
+    "5. [#2] Endpoint d'export (admin, audité)": [
+      {
+        "executionId": "b41dee6b-71d6-4efb-812c-19b556bcb9d8",
+        "chatSessionId": "sess_d6fdcc7e-2005-48a2-895e-eaab8398f6cc",
+        "timestamp": 1792586114056
+      },
+      {
+        "executionId": "b41dee6b-71d6-4efb-812c-19b556bcb9d8",
+        "chatSessionId": "sess_d6fdcc7e-2005-48a2-895e-eaab8398f6cc",
+        "timestamp": 1792586273822
+      }
+    ],
+    "5.1 Dans `backend/app/routers/admin.py` : `POST /api/admin/tenants/{id}/export`,": [
+      {
+        "executionId": "cbdfa32b-b2c9-4e0a-99fb-2570050a6f07",
+        "chatSessionId": "sess_d6fdcc7e-2005-48a2-895e-eaab8398f6cc",
+        "timestamp": 1792586322177
+      }
+    ],
+    "6. [#2] Service d'effacement de tenant (ADR-1)": [
+      {
+        "executionId": "33b525de-76c6-47bc-8f03-09dd3c7f2ee2",
+        "chatSessionId": "sess_6b151304-e797-4a1f-8cb2-9b5c643b03f5",
+        "timestamp": 1792587125007
+      },
+      {
+        "executionId": "33b525de-76c6-47bc-8f03-09dd3c7f2ee2",
+        "chatSessionId": "sess_6b151304-e797-4a1f-8cb2-9b5c643b03f5",
+        "timestamp": 1792587379908
+      }
+    ],
+    "6.1 Dans `tenant_data.py` : `erase_tenant(session, tenant_id) -> EraseReport`.": [
+      {
+        "executionId": "0cb010e3-c1ef-4de9-95b6-f0d948eda0de",
+        "chatSessionId": "sess_6b151304-e797-4a1f-8cb2-9b5c643b03f5",
+        "timestamp": 1792587418959
+      }
+    ],
+    "6.2 Renvoyer un `EraseReport` (compte par table, `audit_preserved=true`,": [
+      {
+        "executionId": "0cb010e3-c1ef-4de9-95b6-f0d948eda0de",
+        "chatSessionId": "sess_6b151304-e797-4a1f-8cb2-9b5c643b03f5",
+        "timestamp": 1792587422239
+      }
+    ],
+    "7. [#2] Endpoint d'effacement (admin, audité AVANT l'acte)": [
+      {
+        "executionId": "358e469c-e3bc-4979-ba28-4023bff81fb2",
+        "chatSessionId": "sess_11042c63-5c4f-424f-a3b5-fa79fee73b26",
+        "timestamp": 1792587444867
+      },
+      {
+        "executionId": "358e469c-e3bc-4979-ba28-4023bff81fb2",
+        "chatSessionId": "sess_11042c63-5c4f-424f-a3b5-fa79fee73b26",
+        "timestamp": 1792587636658
+      }
+    ],
+    "7.1 Dans `routers/admin.py` : `POST /api/admin/tenants/{id}/erase`,": [
+      {
+        "executionId": "7e8ee072-38f5-43ef-9539-372d2e93c2e1",
+        "chatSessionId": "sess_11042c63-5c4f-424f-a3b5-fa79fee73b26",
+        "timestamp": 1792587668338
+      },
+      {
+        "executionId": "7e8ee072-38f5-43ef-9539-372d2e93c2e1",
+        "chatSessionId": "sess_11042c63-5c4f-424f-a3b5-fa79fee73b26",
+        "timestamp": 1792587673346
+      }
+    ],
+    "7.2 Export préalable **optionnel** (décision tranchée) : l'endpoint": [
+      {
+        "executionId": "7e8ee072-38f5-43ef-9539-372d2e93c2e1",
+        "chatSessionId": "sess_11042c63-5c4f-424f-a3b5-fa79fee73b26",
+        "timestamp": 1792587676626
+      },
+      {
+        "executionId": "7e8ee072-38f5-43ef-9539-372d2e93c2e1",
+        "chatSessionId": "sess_11042c63-5c4f-424f-a3b5-fa79fee73b26",
+        "timestamp": 1792587680306
+      }
+    ],
+    "8. [#2] Tests d'intégration export + effacement": [
+      {
+        "executionId": "b15c0979-9c1e-4fed-b254-3edaa52fb6d2",
+        "chatSessionId": "sess_8678f929-e633-4183-88c4-083ec34d8161",
+        "timestamp": 1792587744561
+      },
+      {
+        "executionId": "b15c0979-9c1e-4fed-b254-3edaa52fb6d2",
+        "chatSessionId": "sess_8678f929-e633-4183-88c4-083ec34d8161",
+        "timestamp": 1792588557173
+      }
+    ],
+    "8.1 Deux tenants peuplés (PostGIS réel) : l'export de l'un ne contient que ses": [
+      {
+        "executionId": "0a2f12f2-8233-441d-8e19-8125dc41a8b9",
+        "chatSessionId": "sess_8678f929-e633-4183-88c4-083ec34d8161",
+        "timestamp": 1792588584539
+      }
+    ],
+    "9. [#2, #8] Non-régression finale": [
+      {
+        "executionId": "85495d78-cd57-4087-81f9-8f14c52cee03",
+        "chatSessionId": "sess_022efbaa-1b81-421d-8ca8-17d93d8801bd",
+        "timestamp": 1792588611069
+      },
+      {
+        "executionId": "85495d78-cd57-4087-81f9-8f14c52cee03",
+        "chatSessionId": "sess_022efbaa-1b81-421d-8ca8-17d93d8801bd",
+        "timestamp": 1792588986553
+      }
+    ],
+    "9.1 Suite backend complète verte (unitaire + intégration PostGIS), ruff": [
+      {
+        "executionId": "85495d78-cd57-4087-81f9-8f14c52cee03",
+        "chatSessionId": "sess_022efbaa-1b81-421d-8ca8-17d93d8801bd",
+        "timestamp": 1792588996101
+      },
+      {
+        "executionId": "85495d78-cd57-4087-81f9-8f14c52cee03",
+        "chatSessionId": "sess_022efbaa-1b81-421d-8ca8-17d93d8801bd",
+        "timestamp": 1792588999730
+      }
+    ]
+  }
+}

@@ -20,6 +20,7 @@ Design (section « Data Models ») :
       email text unique
       password_hash text null            -- Argon2id ; nul tant que non défini
       setup_token_hash text null
+      setup_token_selector text null     -- non secret, indexé UNIQUE partiel (#8)
       setup_token_expires_at timestamptz null
       failed_login_count int default 0
       locked_until timestamptz null
@@ -61,6 +62,10 @@ class AppUser(Base):
     email: Mapped[str] = mapped_column(String, nullable=False, unique=True)
     password_hash: Mapped[str | None] = mapped_column(String, nullable=True)
     setup_token_hash: Mapped[str | None] = mapped_column(String, nullable=True)
+    # Sélecteur non secret du setup-token (ADR-2, observation #8) : stocké en clair
+    # et indexé UNIQUE partiel (migration 0011) pour un lookup en coût constant.
+    # NUL tant qu'aucun setup-token n'est en cours ; consommé/émis avec le verifier.
+    setup_token_selector: Mapped[str | None] = mapped_column(String, nullable=True)
     setup_token_expires_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         nullable=True,

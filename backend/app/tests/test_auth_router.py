@@ -30,9 +30,9 @@ from fastapi.testclient import TestClient
 from app.core.config import get_settings
 from app.core.db import get_session
 from app.core.security import (
+    GeneratedSetupToken,
     generate_setup_token,
     hash_password,
-    hash_setup_token,
     verify_password,
 )
 from app.core.tokens import (
@@ -445,38 +445,52 @@ def test_refresh_rejette_un_jeton_bidon(client: TestClient) -> None:
 # --- set-credentials : jeton de configuration à usage unique (tâche 7.4) --------
 
 
-class _FakeScalars:
-    """Expose `all()` comme SQLAlchemy `scalars()`."""
-
-    def __init__(self, users: list[AppUser]) -> None:
-        self._users = users
-
-    def all(self) -> list[AppUser]:
-        return self._users
-
-
 class _FakeSetupResult:
-    """Résultat factice d'un `select(AppUser)` multi-lignes (candidats au jeton)."""
+    """Résultat factice d'un `select(AppUser)` renvoyant au plus une ligne (selector)."""
 
-    def __init__(self, users: list[AppUser]) -> None:
-        self._users = users
+    def __init__(self, user: AppUser | None) -> None:
+        self._user = user
 
-    def scalars(self) -> _FakeScalars:
-        return _FakeScalars(self._users)
+    def scalar_one_or_none(self) -> AppUser | None:
+        return self._user
 
 
 class _FakeSetupSession:
-    """Session factice pour set-credentials : renvoie les candidats et compte les commits."""
+    """Session factice pour set-credentials : lookup par selector + compte des commits.
+
+    Reproduit le lookup selector + verifier (ADR-2) : `execute` lit la valeur du
+    selector liée dans la clause WHERE et renvoie le compte correspondant (ou `None`),
+    comme le ferait l'index UNIQUE partiel en base.
+    """
 
     def __init__(self, users: list[AppUser]) -> None:
         self._users = users
         self.commits = 0
 
-    async def execute(self, _statement: object) -> _FakeSetupResult:
-        return _FakeSetupResult(self._users)
+    async def execute(self, statement: object) -> _FakeSetupResult:
+        selector = _extract_selector(statement)
+        match = next(
+            (
+                user
+                for user in self._users
+                if user.setup_token_selector == selector
+                and user.setup_token_hash is not None
+            ),
+            None,
+        )
+        return _FakeSetupResult(match)
 
     async def commit(self) -> None:
         self.commits += 1
+
+
+def _extract_selector(statement: object) -> str | None:
+    """Extrait la valeur du selector liée dans la clause WHERE d'un `select`."""
+    params = statement.compile().params  # type: ignore[attr-defined]
+    for key, value in params.items():
+        if key.startswith("setup_token_selector"):
+            return value  # type: ignore[no-any-return]
+    return None
 
 
 _setup_session: _FakeSetupSession | None = None
@@ -484,7 +498,7 @@ _setup_session: _FakeSetupSession | None = None
 
 def _make_setup_user(
     *,
-    setup_token: str | None,
+    generated: GeneratedSetupToken | None,
     expires_at: datetime | None,
     is_active: bool = True,
 ) -> AppUser:
@@ -493,7 +507,8 @@ def _make_setup_user(
         tenant_id=uuid.uuid4(),
         email="admin@centre-lome.tg",
         password_hash=None,
-        setup_token_hash=hash_setup_token(setup_token) if setup_token else None,
+        setup_token_selector=generated.selector if generated else None,
+        setup_token_hash=generated.verifier_hash if generated else None,
         setup_token_expires_at=expires_at,
         role="tenant_admin",
         is_active=is_active,
@@ -528,16 +543,16 @@ def test_set_credentials_valide_fixe_mdp_consomme_jeton_et_audite(
     captured_audit: list[AuditEvent],
 ) -> None:
     """Jeton valide → 200, fixe le mot de passe, consomme le jeton, audite l'événement."""
-    token = generate_setup_token()
+    generated = generate_setup_token()
     user = _make_setup_user(
-        setup_token=token,
+        generated=generated,
         expires_at=datetime.now(UTC) + timedelta(hours=1),
     )
     session = _install_setup_users([user])
 
     resp = setup_client.post(
         "/api/auth/set-credentials",
-        json={"setup_token": token, "password": "un-mot-de-passe-robuste-1234"},
+        json={"setup_token": generated.token, "password": "un-mot-de-passe-robuste-1234"},
     )
     assert resp.status_code == 200
     body = resp.json()
@@ -547,6 +562,7 @@ def test_set_credentials_valide_fixe_mdp_consomme_jeton_et_audite(
     # Le mot de passe est fixé et vérifiable, le jeton est consommé (usage unique).
     assert user.password_hash is not None
     assert verify_password("un-mot-de-passe-robuste-1234", user.password_hash) is True
+    assert user.setup_token_selector is None
     assert user.setup_token_hash is None
     assert user.setup_token_expires_at is None
     # La mutation est validée en base.
@@ -563,13 +579,13 @@ def test_set_credentials_jeton_reutilise_renvoie_410(
     captured_audit: list[AuditEvent],
 ) -> None:
     """Un jeton déjà consommé (aucun candidat) → 410 générique, aucun audit."""
-    token = generate_setup_token()
+    generated = generate_setup_token()
     # Jeton déjà consommé : plus aucun compte n'a de `setup_token_hash` non nul.
     session = _install_setup_users([])
 
     resp = setup_client.post(
         "/api/auth/set-credentials",
-        json={"setup_token": token, "password": "un-mot-de-passe-robuste-1234"},
+        json={"setup_token": generated.token, "password": "un-mot-de-passe-robuste-1234"},
     )
     assert resp.status_code == 410
     # Message générique : ne révèle pas l'état du compte/jeton.
@@ -583,16 +599,16 @@ def test_set_credentials_jeton_expire_renvoie_410(
     captured_audit: list[AuditEvent],
 ) -> None:
     """Un jeton expiré → 410, mot de passe inchangé, aucun audit."""
-    token = generate_setup_token()
+    generated = generate_setup_token()
     user = _make_setup_user(
-        setup_token=token,
+        generated=generated,
         expires_at=datetime.now(UTC) - timedelta(seconds=1),
     )
     session = _install_setup_users([user])
 
     resp = setup_client.post(
         "/api/auth/set-credentials",
-        json={"setup_token": token, "password": "un-mot-de-passe-robuste-1234"},
+        json={"setup_token": generated.token, "password": "un-mot-de-passe-robuste-1234"},
     )
     assert resp.status_code == 410
     assert user.password_hash is None
@@ -604,16 +620,19 @@ def test_set_credentials_jeton_invalide_renvoie_410(
     setup_client: TestClient,
     captured_audit: list[AuditEvent],
 ) -> None:
-    """Un jeton ne correspondant à aucun compte → 410, aucun audit."""
+    """Un jeton dont le selector ne correspond à aucun compte → 410, aucun audit."""
     user = _make_setup_user(
-        setup_token=generate_setup_token(),
+        generated=generate_setup_token(),
         expires_at=datetime.now(UTC) + timedelta(hours=1),
     )
     session = _install_setup_users([user])
 
     resp = setup_client.post(
         "/api/auth/set-credentials",
-        json={"setup_token": "jeton-invalide", "password": "un-mot-de-passe-robuste-1234"},
+        json={
+            "setup_token": "selector-inconnu.verifier-quelconque",
+            "password": "un-mot-de-passe-robuste-1234",
+        },
     )
     assert resp.status_code == 410
     assert user.password_hash is None

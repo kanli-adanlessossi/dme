@@ -27,6 +27,7 @@ cette tâche.
 from __future__ import annotations
 
 import secrets
+from dataclasses import dataclass
 
 from argon2 import PasswordHasher
 from argon2 import exceptions as argon2_exceptions
@@ -98,40 +99,84 @@ def verify_password(password: str, password_hash: str | None) -> bool:
         return False
 
 
-# Nombre d'octets d'entropie du jeton de configuration à usage unique (REQ-3.2).
-# 32 octets (256 bits) rendent le jeton impossible à deviner par force brute ;
-# `token_urlsafe` le rend transportable tel quel dans une URL/un corps JSON.
-_SETUP_TOKEN_BYTES = 32
+# Entropie du schéma « selector + verifier » du jeton de configuration (ADR-2,
+# observation #8). Le jeton émis a la forme `"<selector>.<verifier>"` :
+#
+# - `selector` : identifiant NON secret, aléatoire d'au moins 16 octets
+#   (`token_urlsafe(16)`), stocké EN CLAIR et indexé (`app_user.setup_token_selector`,
+#   index UNIQUE partiel) → localise la ligne par un `SELECT` à coût constant. 16
+#   octets d'entropie rendent une collision sur l'index UNIQUE négligeable.
+# - `verifier` : secret aléatoire d'au moins 32 octets (`token_urlsafe(32)`), dont
+#   seule l'empreinte Argon2id est conservée (`setup_token_hash`). Vérifié UNE seule
+#   fois, sur la ligne trouvée par le selector (lookup à coût constant, P4/NFR-2).
+#
+# `token_urlsafe` produit l'alphabet base64url (`A–Z a–z 0–9 - _`), qui ne contient
+# JAMAIS de `.` : le `.` est donc un séparateur non ambigu entre selector et verifier.
+_SETUP_TOKEN_SELECTOR_BYTES = 16
+_SETUP_TOKEN_VERIFIER_BYTES = 32
+
+# Séparateur entre selector et verifier dans le jeton émis (jamais présent dans
+# l'alphabet base64url de `token_urlsafe`, donc non ambigu — ADR-2).
+SETUP_TOKEN_SEPARATOR = "."
 
 
-def generate_setup_token() -> str:
-    """Génère un jeton de configuration en clair, aléatoire et imprévisible.
+@dataclass(frozen=True)
+class GeneratedSetupToken:
+    """Jeton de configuration fraîchement généré (schéma selector + verifier, ADR-2).
 
-    Secret à usage unique émis à la création d'un compte (tâche 8), remis UNE
-    seule fois à l'administrateur pour qu'il définisse son mot de passe (exigence
-    3.2) : il remplace tout envoi de mot de passe en clair. La valeur renvoyée est
-    le secret EN CLAIR, destiné à être transmis à l'utilisateur ; seule son
-    empreinte (`hash_setup_token`) est stockée en base — jamais le clair (NFR-2).
+    Expose, en une seule émission :
+
+    - `token` : le secret EN CLAIR `"<selector>.<verifier>"`, remis UNE seule fois à
+      l'administrateur pour qu'il définisse son mot de passe (exigence 3.2) ; c'est la
+      valeur du champ API opaque `setup_token: str` (contrat inchangé) ;
+    - `selector` : l'identifiant NON secret, à persister EN CLAIR dans
+      `app_user.setup_token_selector` (indexé) pour le lookup à coût constant ;
+    - `verifier_hash` : l'empreinte Argon2id du verifier, à persister dans
+      `app_user.setup_token_hash`. Le verifier en clair n'est JAMAIS stocké (NFR-2).
     """
-    return secrets.token_urlsafe(_SETUP_TOKEN_BYTES)
+
+    token: str
+    selector: str
+    verifier_hash: str
 
 
-def hash_setup_token(setup_token: str) -> str:
-    """Hache un jeton de configuration en clair en une empreinte Argon2id.
+def generate_setup_token() -> GeneratedSetupToken:
+    """Génère un jeton de configuration (schéma selector + verifier, ADR-2).
 
-    Même chemin de hachage que les mots de passe : le jeton est stocké HACHÉ dans
-    `app_user.setup_token_hash`, jamais en clair (NFR-2, exigence 3.2). La valeur
-    de retour est prête à être persistée au moment de l'émission du jeton.
+    Secret à usage unique émis à la création d'un compte (tâche 8), remis UNE seule
+    fois à l'administrateur (exigence 3.2) : il remplace tout envoi de mot de passe en
+    clair. Produit `"<selector>.<verifier>"` et n'en conserve, pour la base, que le
+    selector EN CLAIR (indexé) et l'empreinte Argon2id du verifier — jamais le verifier
+    en clair (NFR-2). Le découpage à la consommation se fait sur le PREMIER `.`.
     """
-    return _get_hasher().hash(setup_token)
+    selector = secrets.token_urlsafe(_SETUP_TOKEN_SELECTOR_BYTES)
+    verifier = secrets.token_urlsafe(_SETUP_TOKEN_VERIFIER_BYTES)
+    token = f"{selector}{SETUP_TOKEN_SEPARATOR}{verifier}"
+    return GeneratedSetupToken(
+        token=token,
+        selector=selector,
+        verifier_hash=hash_setup_token(verifier),
+    )
 
 
-def verify_setup_token(setup_token: str, setup_token_hash: str | None) -> bool:
-    """Vérifie un jeton de configuration en clair contre son empreinte stockée.
+def hash_setup_token(verifier: str) -> str:
+    """Hache le **verifier** d'un jeton de configuration en une empreinte Argon2id.
 
-    Renvoie `True` si le jeton correspond, `False` sinon — y compris lorsque
+    Depuis ADR-2 (schéma selector + verifier), seul le verifier — la part SECRÈTE du
+    jeton — est haché : son empreinte est stockée dans `app_user.setup_token_hash`,
+    jamais le verifier en clair (NFR-2, exigence 3.2). Le selector, non secret, est
+    stocké en clair à part. Même chemin de hachage que les mots de passe. La valeur de
+    retour est prête à être persistée au moment de l'émission du jeton.
+    """
+    return _get_hasher().hash(verifier)
+
+
+def verify_setup_token(verifier: str, setup_token_hash: str | None) -> bool:
+    """Vérifie le **verifier** d'un jeton de configuration contre son empreinte stockée.
+
+    Renvoie `True` si le verifier correspond, `False` sinon — y compris lorsque
     l'empreinte est absente (`None`, jeton déjà consommé ou jamais émis), vide, ou
-    corrompue. Ne lève jamais : la couche HTTP décide seule du code d'erreur
-    (400/410 générique, sans révéler l'état du compte — P3).
+    corrompue. Ne lève jamais : la couche HTTP décide seule du code d'erreur (400/410
+    générique, sans révéler l'état du compte — P3).
     """
-    return verify_password(setup_token, setup_token_hash)
+    return verify_password(verifier, setup_token_hash)

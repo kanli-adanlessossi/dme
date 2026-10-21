@@ -39,7 +39,7 @@ from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
-from app.core.security import generate_setup_token, hash_setup_token
+from app.core.security import generate_setup_token
 from app.core.tenant_context import set_tenant_context
 from app.models.app_user import AppUser
 from app.models.medical_center import MedicalCenter
@@ -201,9 +201,12 @@ async def create_tenant_onboarding(
     )
     session.add(center)
 
-    # 3. tenant_admin initial : jeton de configuration à usage unique (haché), pas
-    #    de mot de passe en clair (exigence 3.2).
-    setup_token = generate_setup_token()
+    # 3. tenant_admin initial : jeton de configuration à usage unique selon le schéma
+    #    selector + verifier (ADR-2, observation #8). On stocke le selector NON secret
+    #    EN CLAIR (indexé, pour un lookup à coût constant) et l'empreinte Argon2id du
+    #    verifier ; aucun mot de passe en clair n'est posé (exigence 3.2). Le jeton
+    #    `"<selector>.<verifier>"` EN CLAIR n'est renvoyé qu'ici, une seule fois.
+    generated = generate_setup_token()
     expires_at = datetime.now(UTC) + timedelta(
         seconds=get_settings().setup_token_ttl_seconds
     )
@@ -212,7 +215,8 @@ async def create_tenant_onboarding(
         tenant_id=tenant.id,
         email=admin_email,
         password_hash=None,
-        setup_token_hash=hash_setup_token(setup_token),
+        setup_token_selector=generated.selector,
+        setup_token_hash=generated.verifier_hash,
         setup_token_expires_at=expires_at,
         role=_TENANT_ADMIN_ROLE,
         is_active=True,
@@ -224,7 +228,7 @@ async def create_tenant_onboarding(
         tenant=tenant,
         center=center,
         admin_user=admin_user,
-        setup_token=setup_token,
+        setup_token=generated.token,
         setup_token_expires_at=expires_at,
     )
 

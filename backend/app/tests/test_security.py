@@ -66,30 +66,55 @@ def test_verify_echoue_si_empreinte_corrompue() -> None:
 
 def test_generate_setup_token_est_aleatoire_et_imprevisible() -> None:
     """Deux jetons générés diffèrent (entropie aléatoire) et sont non vides."""
-    token_a = generate_setup_token()
-    token_b = generate_setup_token()
-    assert token_a and token_b
-    assert token_a != token_b
+    a = generate_setup_token()
+    b = generate_setup_token()
+    assert a.token and b.token
+    assert a.token != b.token
+    assert a.selector != b.selector
+
+
+def test_generate_setup_token_forme_selector_point_verifier() -> None:
+    """Le jeton a la forme `"<selector>.<verifier>"` (ADR-2) ; le selector est en clair.
+
+    Découpage sur le PREMIER `.` : la part avant le `.` est le selector exposé dans
+    `GeneratedSetupToken.selector` ; `token_urlsafe` ne produit jamais de `.`, donc le
+    selector ne contient pas de séparateur.
+    """
+    generated = generate_setup_token()
+    selector, separator, verifier = generated.token.partition(".")
+    assert separator == "."
+    assert selector == generated.selector
+    assert selector and verifier
+    # Seule l'empreinte du verifier est conservée — jamais le verifier en clair.
+    assert verify_setup_token(verifier, generated.verifier_hash) is True
+
+
+def test_generate_setup_token_empreinte_du_verifier_est_argon2id() -> None:
+    """L'empreinte exposée est au format Argon2id et ne contient pas le verifier en clair."""
+    generated = generate_setup_token()
+    verifier = generated.token.partition(".")[2]
+    assert generated.verifier_hash.startswith("$argon2id$")
+    assert verifier not in generated.verifier_hash
 
 
 def test_hash_setup_token_est_argon2id_et_pas_en_clair() -> None:
-    """L'empreinte du jeton est au format Argon2id et ne contient pas le clair."""
-    token = generate_setup_token()
-    digest = hash_setup_token(token)
+    """L'empreinte d'un verifier est au format Argon2id et ne contient pas le clair."""
+    verifier = "un-verifier-de-test"
+    digest = hash_setup_token(verifier)
     assert digest.startswith("$argon2id$")
-    assert token not in digest
+    assert verifier not in digest
 
 
-def test_verify_setup_token_reussit_pour_le_bon_jeton() -> None:
-    """Un jeton vérifie contre sa propre empreinte."""
-    token = generate_setup_token()
-    assert verify_setup_token(token, hash_setup_token(token)) is True
+def test_verify_setup_token_reussit_pour_le_bon_verifier() -> None:
+    """Un verifier vérifie contre sa propre empreinte."""
+    verifier = "un-verifier-de-test"
+    assert verify_setup_token(verifier, hash_setup_token(verifier)) is True
 
 
-def test_verify_setup_token_echoue_pour_un_mauvais_jeton() -> None:
-    """Un jeton erroné est rejeté."""
-    digest = hash_setup_token(generate_setup_token())
-    assert verify_setup_token("mauvais-jeton", digest) is False
+def test_verify_setup_token_echoue_pour_un_mauvais_verifier() -> None:
+    """Un verifier erroné est rejeté."""
+    digest = hash_setup_token("le-vrai-verifier")
+    assert verify_setup_token("mauvais-verifier", digest) is False
 
 
 def test_verify_setup_token_echoue_si_empreinte_absente() -> None:
